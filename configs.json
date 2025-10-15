@@ -6,7 +6,7 @@
   },
   "configs": {
     "elvui": {
-      "PvE Layout": {
+      "PvE Раскладка": {
         "config_string": "ЭКСПОРТ_ELVUI...",
         "author": "TopStreamer",
         "version": "1.2",
