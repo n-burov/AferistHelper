@@ -2,7 +2,7 @@
 ## Title: Aferist Helper
 ## Notes: Библиотека конфигов и управление гильдией
 ## Author: Worog
-## Version: 1.0.2
+## Version: 1.0.3
 ## SavedVariables: AferistHelperDB
 
 ## CurseForge: https://www.curseforge.com/wow/addons/aferist-helper
@@ -16,4 +16,5 @@
 
 AferistHelper.lua
 AferistHelper_Configs.lua
+
 MuteManager.lua
