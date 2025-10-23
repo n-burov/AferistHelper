@@ -1,3 +1,4 @@
+--Библиотека конфигов--
 local ADDON_NAME, addon = ...
 
 AferistHelperDB = AferistHelperDB or {
