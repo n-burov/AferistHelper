@@ -1,4 +1,3 @@
---для игроков--
 local ADDON_NAME, addon = ...
 
 AferistHelperDB = AferistHelperDB or {
@@ -807,4 +806,5 @@ loader:SetScript("OnEvent", function(self, event, addonName)
         self:UnregisterEvent("ADDON_LOADED")
     end
 end)
+
 
