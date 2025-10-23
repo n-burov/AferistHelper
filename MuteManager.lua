@@ -1,8 +1,3 @@
---[[
-MuteManager - временное понижение ранга в гильдии
-Графический интерфейс
---]]
-
 local MAJOR, MINOR = "MuteManager", 1
 local MuteManager = {
     db = {
@@ -22,6 +17,32 @@ local MuteManager = {
 
 local minimapButton
 
+-- Функция проверки прав гильдии
+function CheckGuildPermissions()
+    if not IsInGuild() then
+        return false
+    end
+    
+    -- Проверяем права на изменение офицерских заметок
+    if not CanEditOfficerNote() then
+        return false
+    end
+    
+    local playerName = UnitName("player")
+    local playerInfo = MuteManager:GetPlayerInfo(playerName)
+    
+    if not playerInfo then
+        return false
+    end
+    
+    -- Для WoW 3.3.5 проверяем ранг - обычно ранг 0-1 это лидер/офицеры
+    if playerInfo.rankIndex > 1 then
+        return false
+    end
+    
+    return true
+end
+
 function CreateMinimapButton()
     minimapButton = CreateFrame("Button", "AferistHelperMinimapButton", Minimap)
     minimapButton:SetSize(32, 32)
@@ -33,7 +54,13 @@ function CreateMinimapButton()
     minimapButton.icon = minimapButton:CreateTexture(nil, "BACKGROUND")
     minimapButton.icon:SetSize(20, 20)
     minimapButton.icon:SetPoint("CENTER")
-    minimapButton.icon:SetTexture("Interface\\Icons\\INV_Misc_Book_09")
+    
+    -- Устанавливаем иконку в зависимости от прав
+    if CheckGuildPermissions() then
+        minimapButton.icon:SetTexture("Interface\\Icons\\INV_Misc_Book_09")
+    else
+        minimapButton.icon:SetTexture("Interface\\Icons\\INV_Misc_Book_06")
+    end
     
     minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
     
@@ -47,7 +74,11 @@ function CreateMinimapButton()
     minimapButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:SetText("Aferist Helper", 1, 1, 1)
-        GameTooltip:AddLine("ЛКМ - Меню", 0.8, 0.8, 0.8)
+        if CheckGuildPermissions() then
+            GameTooltip:AddLine("ЛКМ - Меню (доступны функции гильдии)", 0.8, 0.8, 0.8)
+        else
+            GameTooltip:AddLine("ЛКМ - Меню", 0.8, 0.8, 0.8)
+        end
         GameTooltip:Show()
     end)
     
@@ -69,6 +100,9 @@ end
 function ToggleMinimapMenu()
     local menuFrame = CreateFrame("Frame", "AferistHelperMinimapMenu", UIParent, "UIDropDownMenuTemplate")
     
+    -- Проверяем права для отображения функционала гильдии
+    local hasGuildPermissions = CheckGuildPermissions()
+    
     local menuItems = {
         {
             text = "Aferist Helper",
@@ -88,86 +122,59 @@ function ToggleMinimapMenu()
                 SlashCmdList["AFERISTHELPER"]("class")
             end,
             notCheckable = true
-        },
-        {
+        }
+    }
+    
+    -- Добавляем раздел управления гильдией только если есть права
+    if hasGuildPermissions then
+        table.insert(menuItems, {
             text = "Управление гильдией",
             isTitle = true,
             notCheckable = true
-        },
-        {
+        })
+        
+        table.insert(menuItems, {
             text = "MuteManager",
             func = function() 
-                -- Проверяем права при клике, а не при создании меню
-                if not IsInGuild() then
-                    MuteManager:ShowNotification("Ошибка: Вы не в гильдии")
-                    return
-                end
-                if not CanEditOfficerNote() then
-                    MuteManager:ShowNotification("Ошибка: Недостаточно прав офицера")
-                    return
-                end
                 MuteManager:ToggleWindow()
             end,
             notCheckable = true
-        },
-        {
+        })
+        
+        table.insert(menuItems, {
             text = "Активные муты",
             func = function() 
-                -- Проверяем права при клике, а не при создании меню
-                if not IsInGuild() then
-                    MuteManager:ShowNotification("Ошибка: Вы не в гильдии")
-                    return
-                end
-                if not CanEditOfficerNote() then
-                    MuteManager:ShowNotification("Ошибка: Недостаточно прав офицера")
-                    return
-                end
+                MuteManager:ShowTab(2)
                 MuteManager:ToggleWindow()
             end,
             notCheckable = true
-        },
-        {
+        })
+        
+        table.insert(menuItems, {
             text = "Настройки мутов",
             func = function() 
-                -- Проверяем права при клике, а не при создании меню
-                if not IsInGuild() then
-                    MuteManager:ShowNotification("Ошибка: Вы не в гильдии")
-                    return
-                end
-                if not CanEditOfficerNote() then
-                    MuteManager:ShowNotification("Ошибка: Недостаточно прав офицера")
-                    return
-                end
+                MuteManager:ShowTab(3)
                 MuteManager:ToggleWindow()
             end,
             notCheckable = true
-        },
-        {
+        })
+        
+        table.insert(menuItems, {
             text = "Очистка гильдии",
             func = function() 
-                -- Проверяем права при клике, а не при создании меню
-                if not IsInGuild() then
-                    MuteManager:ShowNotification("Ошибка: Вы не в гильдии")
-                    return
-                end
-                if not CanEditOfficerNote() then
-                    MuteManager:ShowNotification("Ошибка: Недостаточно прав офицера")
-                    return
-                end
+                MuteManager:ShowTab(4)
                 MuteManager:ToggleWindow()
             end,
             notCheckable = true
-        }
-    }
+        })
+    end
     
     EasyMenu(menuItems, menuFrame, "cursor", 0, 0, "MENU")
 end
 
-
-
 function MuteManager:CreateMainWindow()
     local frame = CreateFrame("Frame", "MuteManagerFrame", UIParent, "BasicFrameTemplate")
-    frame:SetSize(450, 550)
+    frame:SetSize(500, 600)
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -185,20 +192,20 @@ function MuteManager:CreateMainWindow()
 end
 
 function MuteManager:CreateUIElements(parent)
-    local tabs = {"Основное", "Активные муты", "Настройки", "Очистка"}
+    local tabs = {"Управление игроком", "Активные муты", "Настройки", "Очистка"}
     local tabFrames = {}
     
     for i, tabName in ipairs(tabs) do
         local tab = CreateFrame("Button", "MuteManagerTab"..i, parent, "CharacterFrameTabButtonTemplate")
         tab:SetText(tabName)
         tab:SetID(i)
-        tab:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", 5 + ((i-1) * 100), 2)
+        tab:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", 5 + ((i-1) * 120), 2)
         tab:SetScript("OnClick", function() 
             self:ShowTab(i) 
         end)
         
         local tabFrame = CreateFrame("Frame", nil, parent)
-        tabFrame:SetSize(430, 480)
+        tabFrame:SetSize(480, 530)
         tabFrame:SetPoint("TOPLEFT", 10, -30)
         tabFrame:Hide()
         
@@ -219,15 +226,17 @@ function MuteManager:CreateUIElements(parent)
     self:ShowTab(1)
 end
 
-
 function MuteManager:CreateMainTab(parent)
-    local nameLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    nameLabel:SetPoint("TOPLEFT", 10, -10)
-    nameLabel:SetText("Ник игрока:")
+    local yOffset = -10
     
-    local nameEdit = CreateFrame("EditBox", nil, parent)
+    -- Поиск игрока
+    local searchLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    searchLabel:SetPoint("TOPLEFT", 10, yOffset)
+    searchLabel:SetText("Поиск игрока:")
+    
+    local nameEdit = CreateFrame("EditBox", "MuteManagerNameEdit", parent)
     nameEdit:SetSize(180, 20)
-    nameEdit:SetPoint("TOPLEFT", 100, -10)
+    nameEdit:SetPoint("TOPLEFT", 100, yOffset)
     nameEdit:SetAutoFocus(false)
     nameEdit:SetFontObject("GameFontNormal")
     nameEdit:SetTextInsets(8, 8, 0, 0)
@@ -241,17 +250,148 @@ function MuteManager:CreateMainTab(parent)
     nameEdit:SetBackdropColor(0, 0, 0, 0.5)
     nameEdit:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
     
-    nameEdit:SetScript("OnEscapePressed", function(self)
-        self:ClearFocus()
-    end)
+    local searchBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    searchBtn:SetSize(80, 22)
+    searchBtn:SetPoint("TOPLEFT", 290, yOffset)
+    searchBtn:SetText("Поиск")
+    
+    yOffset = yOffset - 30
+    
+    -- Информация об игроке
+    local infoFrame = CreateFrame("Frame", nil, parent)
+    infoFrame:SetPoint("TOPLEFT", 10, yOffset)
+    infoFrame:SetPoint("TOPRIGHT", -10, yOffset)
+    infoFrame:SetHeight(200)
+    
+    infoFrame:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    })
+    infoFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
+    infoFrame:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
+    
+    local infoTitle = infoFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    infoTitle:SetPoint("TOP", 0, -8)
+    infoTitle:SetText("Информация об игроке")
+    infoTitle:SetTextColor(1, 1, 0)
+    
+    local infoText = infoFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    infoText:SetPoint("TOPLEFT", 15, -30)
+    infoText:SetSize(440, 160)
+    infoText:SetJustifyH("LEFT")
+    infoText:SetJustifyV("TOP")
+    infoText:SetText("Введите ник игрока и нажмите 'Поиск'")
+    
+    yOffset = yOffset - 210
+    
+    -- Управление заметками
+    local notesLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    notesLabel:SetPoint("TOPLEFT", 10, yOffset)
+    notesLabel:SetText("Управление заметками:")
+    notesLabel:SetTextColor(1, 1, 0)
+    
+    yOffset = yOffset - 25
+    
+    -- Публичная заметка
+    local publicNoteLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    publicNoteLabel:SetPoint("TOPLEFT", 20, yOffset)
+    publicNoteLabel:SetText("Публичная заметка:")
+    
+    yOffset = yOffset - 20
+    
+    local publicNoteEdit = CreateFrame("EditBox", "MuteManagerPublicNoteEdit", parent)
+    publicNoteEdit:SetSize(350, 20)
+    publicNoteEdit:SetPoint("TOPLEFT", 20, yOffset)
+    publicNoteEdit:SetAutoFocus(false)
+    publicNoteEdit:SetFontObject("GameFontNormal")
+    publicNoteEdit:SetTextInsets(8, 8, 0, 0)
+    
+    publicNoteEdit:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        tile = true, tileSize = 16, edgeSize = 1,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 }
+    })
+    publicNoteEdit:SetBackdropColor(0, 0, 0, 0.5)
+    publicNoteEdit:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
+    
+    local savePublicNoteBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    savePublicNoteBtn:SetSize(80, 22)
+    savePublicNoteBtn:SetPoint("TOPLEFT", 380, yOffset)
+    savePublicNoteBtn:SetText("Сохранить")
+    
+    yOffset = yOffset - 30
+    
+    -- Офицерская заметка
+    local officerNoteLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    officerNoteLabel:SetPoint("TOPLEFT", 20, yOffset)
+    officerNoteLabel:SetText("Офицерская заметка:")
+    
+    yOffset = yOffset - 20
+    
+    local officerNoteEdit = CreateFrame("EditBox", "MuteManagerOfficerNoteEdit", parent)
+    officerNoteEdit:SetSize(350, 20)
+    officerNoteEdit:SetPoint("TOPLEFT", 20, yOffset)
+    officerNoteEdit:SetAutoFocus(false)
+    officerNoteEdit:SetFontObject("GameFontNormal")
+    officerNoteEdit:SetTextInsets(8, 8, 0, 0)
+    
+    officerNoteEdit:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        tile = true, tileSize = 16, edgeSize = 1,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 }
+    })
+    officerNoteEdit:SetBackdropColor(0, 0, 0, 0.5)
+    officerNoteEdit:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
+    
+    local saveOfficerNoteBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    saveOfficerNoteBtn:SetSize(80, 22)
+    saveOfficerNoteBtn:SetPoint("TOPLEFT", 380, yOffset)
+    saveOfficerNoteBtn:SetText("Сохранить")
+    
+    yOffset = yOffset - 40
+    
+    -- Управление рангом
+    local rankLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    rankLabel:SetPoint("TOPLEFT", 10, yOffset)
+    rankLabel:SetText("Изменение ранга:")
+    rankLabel:SetTextColor(1, 1, 0)
+    
+    yOffset = yOffset - 25
+    
+    local newRankLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    newRankLabel:SetPoint("TOPLEFT", 20, yOffset)
+    newRankLabel:SetText("Новый ранг:")
+    
+    local rankDropdown = CreateFrame("Frame", "MuteManagerPlayerRankDropdown", parent, "UIDropDownMenuTemplate")
+    rankDropdown:SetPoint("TOPLEFT", 120, yOffset)
+    rankDropdown.initialize = function() self:InitializePlayerRankDropdown() end
+    
+    local changeRankBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    changeRankBtn:SetSize(120, 25)
+    changeRankBtn:SetPoint("TOPLEFT", 300, yOffset)
+    changeRankBtn:SetText("Изменить ранг")
+    
+    yOffset = yOffset - 40
+    
+    -- Система мута
+    local muteLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    muteLabel:SetPoint("TOPLEFT", 10, yOffset)
+    muteLabel:SetText("Система мута:")
+    muteLabel:SetTextColor(1, 1, 0)
+    
+    yOffset = yOffset - 25
     
     local timeLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    timeLabel:SetPoint("TOPLEFT", 10, -40)
+    timeLabel:SetPoint("TOPLEFT", 20, yOffset)
     timeLabel:SetText("Время (минуты):")
     
-    local timeEdit = CreateFrame("EditBox", nil, parent)
-    timeEdit:SetSize(100, 20)
-    timeEdit:SetPoint("TOPLEFT", 100, -40)
+    local timeEdit = CreateFrame("EditBox", "MuteManagerTimeEdit", parent)
+    timeEdit:SetSize(80, 20)
+    timeEdit:SetPoint("TOPLEFT", 20, yOffset - 20)
     timeEdit:SetAutoFocus(false)
     timeEdit:SetNumeric(true)
     timeEdit:SetFontObject("GameFontNormal")
@@ -266,17 +406,13 @@ function MuteManager:CreateMainTab(parent)
     timeEdit:SetBackdropColor(0, 0, 0, 0.5)
     timeEdit:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
     
-    timeEdit:SetScript("OnEscapePressed", function(self)
-        self:ClearFocus()
-    end)
-    
     local reasonLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    reasonLabel:SetPoint("TOPLEFT", 10, -70)
+    reasonLabel:SetPoint("TOPLEFT", 120, yOffset)
     reasonLabel:SetText("Причина:")
     
-    local reasonEdit = CreateFrame("EditBox", nil, parent)
-    reasonEdit:SetSize(180, 20)
-    reasonEdit:SetPoint("TOPLEFT", 100, -70)
+    local reasonEdit = CreateFrame("EditBox", "MuteManagerReasonEdit", parent)
+    reasonEdit:SetSize(200, 20)
+    reasonEdit:SetPoint("TOPLEFT", 120, yOffset - 20)
     reasonEdit:SetAutoFocus(false)
     reasonEdit:SetFontObject("GameFontNormal")
     reasonEdit:SetTextInsets(8, 8, 0, 0)
@@ -290,47 +426,266 @@ function MuteManager:CreateMainTab(parent)
     reasonEdit:SetBackdropColor(0, 0, 0, 0.5)
     reasonEdit:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
     
-    reasonEdit:SetScript("OnEscapePressed", function(self)
-        self:ClearFocus()
-    end)
+    yOffset = yOffset - 50
     
     local muteBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     muteBtn:SetSize(120, 25)
-    muteBtn:SetPoint("TOPLEFT", 10, -100)
+    muteBtn:SetPoint("TOPLEFT", 20, yOffset)
     muteBtn:SetText("Замутить")
+    
+    local unmuteBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    unmuteBtn:SetSize(120, 25)
+    unmuteBtn:SetPoint("TOPLEFT", 150, yOffset)
+    unmuteBtn:SetText("Размутить")
+    
+    -- Сохраняем ссылки на элементы
+    parent.nameEdit = nameEdit
+    parent.searchBtn = searchBtn
+    parent.infoText = infoText
+    parent.publicNoteEdit = publicNoteEdit
+    parent.officerNoteEdit = officerNoteEdit
+    parent.savePublicNoteBtn = savePublicNoteBtn
+    parent.saveOfficerNoteBtn = saveOfficerNoteBtn
+    parent.rankDropdown = rankDropdown
+    parent.changeRankBtn = changeRankBtn
+    parent.timeEdit = timeEdit
+    parent.reasonEdit = reasonEdit
+    parent.muteBtn = muteBtn
+    parent.unmuteBtn = unmuteBtn
+    
+    -- Обработчики событий
+    searchBtn:SetScript("OnClick", function()
+        self:SearchPlayer(nameEdit:GetText())
+    end)
+    
+    nameEdit:SetScript("OnEnterPressed", function(self)
+        MuteManager:SearchPlayer(self:GetText())
+        self:ClearFocus()
+    end)
+    
+    nameEdit:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+    end)
+    
+    savePublicNoteBtn:SetScript("OnClick", function()
+        self:SavePublicNote(nameEdit:GetText(), publicNoteEdit:GetText())
+    end)
+    
+    saveOfficerNoteBtn:SetScript("OnClick", function()
+        self:SaveOfficerNote(nameEdit:GetText(), officerNoteEdit:GetText())
+    end)
+    
+    changeRankBtn:SetScript("OnClick", function()
+        self:ChangePlayerRank(nameEdit:GetText())
+    end)
+    
     muteBtn:SetScript("OnClick", function()
         self:MuteFromUI(nameEdit:GetText(), timeEdit:GetText(), reasonEdit:GetText())
     end)
     
-    local unmuteBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    unmuteBtn:SetSize(120, 25)
-    unmuteBtn:SetPoint("TOPLEFT", 140, -100)
-    unmuteBtn:SetText("Размутить")
     unmuteBtn:SetScript("OnClick", function()
         self:UnmuteFromUI(nameEdit:GetText())
     end)
     
-    local playerInfo = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    playerInfo:SetPoint("TOPLEFT", 10, -140)
-    playerInfo:SetSize(360, 100)
-    playerInfo:SetJustifyH("LEFT")
-    playerInfo:SetText("Информация об игроке появится здесь")
-    
-    local checkBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    checkBtn:SetSize(120, 25)
-    checkBtn:SetPoint("TOPLEFT", 10, -250)
-    checkBtn:SetText("Проверить игрока")
-    checkBtn:SetScript("OnClick", function()
-        self:ShowPlayerInfo(nameEdit:GetText(), playerInfo)
+    publicNoteEdit:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
     end)
     
-    parent.nameEdit = nameEdit
-    parent.timeEdit = timeEdit
-    parent.reasonEdit = reasonEdit
-    parent.playerInfo = playerInfo
+    officerNoteEdit:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+    end)
+    
+    timeEdit:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+    end)
+    
+    reasonEdit:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+    end)
 end
 
+function MuteManager:SearchPlayer(playerName)
+    if not playerName or playerName == "" then
+        self.tabFrames[1].infoText:SetText("|cFFFF0000Введите ник игрока|r")
+        return
+    end
+    
+    local playerInfo = self:GetPlayerInfo(playerName)
+    if not playerInfo then
+        self.tabFrames[1].infoText:SetText("|cFFFF0000Игрок '" .. playerName .. "' не найден в гильдии|r")
+        return
+    end
+    
+    -- Обновляем информацию об игроке
+    local infoText = string.format(
+        "|cFFFFFF00Игрок:|r |cFFFFFFFF%s|r\n" ..
+        "|cFFFFFF00Ранг:|r |cFFFFFFFF%s (%d)|r\n" ..
+        "|cFFFFFF00Статус:|r %s\n" ..
+        "|cFFFFFF00Класс:|r |cFFFFFFFF%s|r\n" ..
+        "|cFFFFFF00Уровень:|r |cFFFFFFFF%d|r\n" ..
+        "|cFFFFFF00Зона:|r |cFFFFFFFF%s|r\n" ..
+        "|cFFFFFF00Публичная заметка:|r |cFFFFFFFF%s|r\n" ..
+        "|cFFFFFF00Офицерская заметка:|r |cFFFFFFFF%s|r",
+        playerInfo.fullName,
+        playerInfo.rankName,
+        playerInfo.rankIndex,
+        playerInfo.online and "|cFF00FF00Онлайн|r" or "|cFFFF0000Оффлайн|r",
+        playerInfo.class or "Неизвестно",
+        playerInfo.level or 0,
+        playerInfo.zone or "Неизвестно",
+        playerInfo.note or "нет",
+        playerInfo.officernote or "нет"
+    )
+    
+    -- Проверяем мут
+    if self.db.activeMutes[playerName] then
+        local muteData = self.db.activeMutes[playerName]
+        local remaining = math.max(0, muteData.expireTime - time())
+        local remainingMinutes = math.floor(remaining / 60)
+        local remainingSeconds = remaining % 60
+        
+        infoText = infoText .. string.format(
+            "\n\n|cFFFF0000СТАТУС: ЗАМУЧЕН|r\n" ..
+            "|cFFFFFF00Осталось:|r |cFFFFFFFF%d:%02d|r\n" ..
+            "|cFFFFFF00Причина:|r |cFFFFFFFF%s|r\n" ..
+            "|cFFFFFF00Выдал:|r |cFFFFFFFF%s|r",
+            remainingMinutes,
+            remainingSeconds,
+            muteData.reason or "не указана",
+            muteData.mutedBy or "неизвестно"
+        )
+    end
+    
+    self.tabFrames[1].infoText:SetText(infoText)
+    
+    -- Заполняем поля редактирования
+    self.tabFrames[1].publicNoteEdit:SetText(playerInfo.note or "")
+    self.tabFrames[1].officerNoteEdit:SetText(playerInfo.officernote or "")
+    
+    -- Обновляем выпадающий список рангов
+    UIDropDownMenu_SetText(self.tabFrames[1].rankDropdown, playerInfo.rankIndex .. " - " .. playerInfo.rankName)
+    
+    -- Сохраняем информацию о текущем игроке
+    self.currentPlayer = playerInfo
+end
 
+function MuteManager:SavePublicNote(playerName, noteText)
+    if not playerName or playerName == "" then
+        self:ShowNotification("Сначала найдите игрока")
+        return
+    end
+    
+    if self:SetGuildMemberNote(playerName, noteText, false) then
+        self:ShowNotification("Публичная заметка обновлена")
+        self:SearchPlayer(playerName) -- Обновляем информацию
+    else
+        self:ShowNotification("Ошибка обновления заметки")
+    end
+end
+
+function MuteManager:SaveOfficerNote(playerName, noteText)
+    if not playerName or playerName == "" then
+        self:ShowNotification("Сначала найдите игрока")
+        return
+    end
+    
+    if self:SetGuildMemberNote(playerName, noteText, true) then
+        self:ShowNotification("Офицерская заметка обновлена")
+        self:SearchPlayer(playerName) -- Обновляем информацию
+    else
+        self:ShowNotification("Ошибка обновления заметки")
+    end
+end
+
+function MuteManager:InitializePlayerRankDropdown()
+    local info = UIDropDownMenu_CreateInfo()
+    
+    for i = 0, #self.db.guildRanks do
+        if self.db.guildRanks[i] then
+            info.text = i .. " - " .. self.db.guildRanks[i]
+            info.value = i
+            info.func = function(self)
+                UIDropDownMenu_SetText(MuteManager.tabFrames[1].rankDropdown, self.value .. " - " .. MuteManager.db.guildRanks[self.value])
+            end
+            UIDropDownMenu_AddButton(info)
+        end
+    end
+end
+
+function MuteManager:ChangePlayerRank(playerName)
+    if not playerName or playerName == "" then
+        self:ShowNotification("Сначала найдите игрока")
+        return
+    end
+    
+    local targetRankText = UIDropDownMenu_GetText(self.tabFrames[1].rankDropdown)
+    if not targetRankText then
+        self:ShowNotification("Выберите ранг")
+        return
+    end
+    
+    local targetRankIndex = tonumber(targetRankText:match("^(%d+)"))
+    if targetRankIndex == nil then
+        self:ShowNotification("Ошибка определения ранга")
+        return
+    end
+    
+    local playerInfo = self:GetPlayerInfo(playerName)
+    if not playerInfo then
+        self:ShowNotification("Игрок не найден")
+        return
+    end
+    
+    if playerInfo.rankIndex == targetRankIndex then
+        self:ShowNotification("Игрок уже имеет этот ранг")
+        return
+    end
+    
+    if self:ExecuteRankCommands(playerInfo.fullName, targetRankIndex) then
+        self:ShowNotification("Ранг изменен")
+        self:DelayedExecute(3, function()
+            self:SearchPlayer(playerName) -- Обновляем информацию после задержки
+        end)
+    else
+        self:ShowNotification("Ошибка изменения ранга")
+    end
+end
+
+function MuteManager:MuteFromUI(playerName, timeText, reason)
+    if not playerName or playerName == "" then
+        self:ShowNotification("Сначала найдите игрока")
+        return
+    end
+    
+    local duration = tonumber(timeText)
+    if not duration or duration <= 0 then
+        self:ShowNotification("Введите корректное время")
+        return
+    end
+    
+    if self:MutePlayer(playerName, duration, reason) then
+        self.tabFrames[1].timeEdit:SetText("")
+        self.tabFrames[1].reasonEdit:SetText("")
+        self:DelayedExecute(2, function()
+            self:SearchPlayer(playerName) -- Обновляем информацию
+        end)
+    end
+end
+
+function MuteManager:UnmuteFromUI(playerName)
+    if not playerName or playerName == "" then
+        self:ShowNotification("Сначала найдите игрока")
+        return
+    end
+    
+    if self:UnmutePlayer(playerName) then
+        self:DelayedExecute(2, function()
+            self:SearchPlayer(playerName) -- Обновляем информацию
+        end)
+    end
+end
+
+-- Остальные функции остаются без изменений (CreateActiveMutesTab, CreateSettingsTab, CreateCleanupTab и т.д.)
 function MuteManager:CreateActiveMutesTab(parent)
     local scrollFrame = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", 10, -10)
@@ -338,11 +693,11 @@ function MuteManager:CreateActiveMutesTab(parent)
     
     local scrollChild = CreateFrame("Frame")
     scrollFrame:SetScrollChild(scrollChild)
-    scrollChild:SetSize(350, 400)
+    scrollChild:SetSize(440, 400)
     
     local content = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     content:SetPoint("TOPLEFT")
-    content:SetSize(350, 400)
+    content:SetSize(440, 400)
     content:SetJustifyH("LEFT")
     
     parent.content = content
@@ -356,7 +711,6 @@ function MuteManager:CreateActiveMutesTab(parent)
         self:UpdateActiveMutesTab()
     end)
 end
-
 
 function MuteManager:CreateSettingsTab(parent)
     local yOffset = -10
@@ -439,7 +793,7 @@ function MuteManager:CreateSettingsTab(parent)
     
     local statsText = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     statsText:SetPoint("TOPLEFT", 10, yOffset - 20)
-    statsText:SetSize(360, 100)
+    statsText:SetSize(440, 100)
     statsText:SetJustifyH("LEFT")
     
     parent.statsText = statsText
@@ -452,7 +806,6 @@ function MuteManager:CreateSettingsTab(parent)
         self:UpdateStats()
     end)
 end
-
 
 function MuteManager:CreateCleanupTab(parent)
     local yOffset = -10
@@ -523,7 +876,7 @@ function MuteManager:CreateCleanupTab(parent)
     
     local scrollChild = CreateFrame("Frame")
     scrollFrame:SetScrollChild(scrollChild)
-    scrollChild:SetSize(390, 400)
+    scrollChild:SetSize(440, 400)
     
     local checkboxesContainer = CreateFrame("Frame", nil, scrollChild)
     checkboxesContainer:SetAllPoints()
@@ -568,7 +921,6 @@ function MuteManager:ShowTab(tabIndex)
     end
 end
 
-
 function MuteManager:InitializeRankDropdown()
     local info = UIDropDownMenu_CreateInfo()
     
@@ -585,84 +937,6 @@ function MuteManager:InitializeRankDropdown()
         end
     end
 end
-
-function MuteManager:MuteFromUI(name, timeText, reason)
-    if not name or name == "" then
-        self:ShowNotification("Введите ник игрока")
-        return
-    end
-    
-    local duration = tonumber(timeText)
-    if not duration or duration <= 0 then
-        self:ShowNotification("Введите корректное время")
-        return
-    end
-    
-    self:MutePlayer(name, duration, reason)
-    
-    if self.tabFrames[1].nameEdit then
-        self.tabFrames[1].nameEdit:SetText("")
-        self.tabFrames[1].timeEdit:SetText("")
-        self.tabFrames[1].reasonEdit:SetText("")
-        self.tabFrames[1].playerInfo:SetText("Информация об игроке появится здесь")
-    end
-end
-
-function MuteManager:UnmuteFromUI(name)
-    if not name or name == "" then
-        self:ShowNotification("Введите ник игрока")
-        return
-    end
-    
-    self:UnmutePlayer(name)
-end
-
-
-function MuteManager:ShowPlayerInfo(playerName, infoFrame)
-    if not playerName or playerName == "" then
-        infoFrame:SetText("Введите ник игрока")
-        return
-    end
-    
-    local playerInfo = self:GetPlayerInfo(playerName)
-    if not playerInfo then
-        infoFrame:SetText("Игрок не найден в гильдии")
-        return
-    end
-    
-    local infoText = string.format(
-        "Игрок: |cFFFFFFFF%s|r\n" ..
-        "Ранг: |cFFFFFFFF%s (%d)|r\n" ..
-        "Статус: |cFFFFFFFF%s|r\n" ..
-        "Класс: |cFFFFFFFF%s|r\n" ..
-        "Зона: |cFFFFFFFF%s|r",
-        playerInfo.fullName,
-        playerInfo.rankName,
-        playerInfo.rankIndex,
-        playerInfo.online and "|cFF00FF00Онлайн|r" or "|cFFFF0000Оффлайн|r",
-        playerInfo.class or "Неизвестно",
-        playerInfo.zone or "Неизвестно"
-    )
-    
-    if self.db.activeMutes[playerName] then
-        local muteData = self.db.activeMutes[playerName]
-        local remaining = math.max(0, muteData.expireTime - time())
-        local remainingMinutes = math.floor(remaining / 60)
-        
-        infoText = infoText .. string.format(
-            "\n\n|cFFFF0000ЗАМУЧЕН|r\n" ..
-            "Осталось: |cFFFFFFFF%d минут|r\n" ..
-            "Причина: |cFFFFFFFF%s|r\n" ..
-            "Выдал: |cFFFFFFFF%s|r",
-            remainingMinutes,
-            muteData.reason or "не указана",
-            muteData.mutedBy or "неизвестно"
-        )
-    end
-    
-    infoFrame:SetText(infoText)
-end
-
 
 function MuteManager:UpdateActiveMutesTab()
     local content = self.tabFrames[2].content
@@ -702,7 +976,6 @@ function MuteManager:UpdateActiveMutesTab()
     
     content:SetText(text)
 end
-
 
 function MuteManager:UpdateStats()
     local statsText = self.tabFrames[3].statsText
@@ -744,7 +1017,6 @@ function MuteManager:UpdateStats()
     statsText:SetText(text)
 end
 
-
 function MuteManager:FindInactivePlayers(daysThreshold)
     if not IsInGuild() then
         self:ShowNotification("Ошибка: Вы не в гильдии")
@@ -779,7 +1051,6 @@ function MuteManager:FindInactivePlayers(daysThreshold)
     self:UpdateCleanupList()
 end
 
-
 function MuteManager:UpdateCleanupList()
     local parent = self.tabFrames[4]
     local container = parent.checkboxesContainer
@@ -803,7 +1074,7 @@ function MuteManager:UpdateCleanupList()
     end)
     
     local yOffset = 0
-    local maxWidth = 380
+    local maxWidth = 420
     
     for i, candidate in ipairs(self.cleanupCandidates) do
         local checkbox = CreateFrame("CheckButton", nil, container, "UICheckButtonTemplate")
@@ -840,7 +1111,6 @@ function MuteManager:UpdateCleanupList()
     
     container:SetHeight(math.abs(yOffset) + 10)
 end
-
 
 function MuteManager:RemoveSelectedPlayers()
     local parent = self.tabFrames[4]
@@ -879,14 +1149,12 @@ function MuteManager:RemoveSelectedPlayers()
     self:ShowNotification("Удаление завершено")
 end
 
-
 function MuteManager:ShowNotification(message)
     if self.db.settings.showNotifications then
         UIErrorsFrame:AddMessage(message, 1.0, 0.1, 0.1, 1.0)
     end
     self:Print(message)
 end
-
 
 function MuteManager:ExecuteGuildCommand(command)
     table.insert(self.commandQueue, command)
@@ -947,7 +1215,7 @@ function MuteManager:OnLoad()
         self[event](self, ...) 
     end)
     
-    SLASH_AFERISTHELPERADMIN1 = "/ah admin"
+    SLASH_AFERISTHELPERADMIN1 = "/ahadmin"
     SLASH_AFERISTHELPERADMIN2 = "/ah mute"
     SlashCmdList["AFERISTHELPERADMIN"] = function(msg) 
         if not CheckGuildPermissions() then
@@ -977,7 +1245,13 @@ function MuteManager:ADDON_LOADED(addonName)
         self:CreateMainWindow()
         self.mainFrame:Hide()
         
+        -- Создаем кнопку только если есть права или для всех (на ваше усмотрение)
         CreateMinimapButton()
+        
+        -- Скрываем окно MuteManager если нет прав
+        if not CheckGuildPermissions() then
+            self.mainFrame:Hide()
+        end
     end
 end
 
@@ -1021,7 +1295,9 @@ function MuteManager:GetPlayerInfo(playerName)
                     online = online,
                     class = class,
                     zone = zone,
+                    note = note,
                     officernote = officernote,
+                    level = level,
                     rosterIndex = i
                 }
             end
@@ -1030,9 +1306,6 @@ function MuteManager:GetPlayerInfo(playerName)
     
     return nil
 end
-
-
-MuteManager.GetPlayerInfo = MuteManager.GetPlayerInfo
 
 function MuteManager:SetGuildMemberNote(playerName, noteText, isOfficerNote)
     local targetInfo = self:GetPlayerInfo(playerName)
