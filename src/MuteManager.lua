@@ -1,3 +1,4 @@
+--админ фичи--
 local MAJOR, MINOR = "MuteManager", 1
 local MuteManager = {
     db = {
