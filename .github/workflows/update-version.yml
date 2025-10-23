@@ -1,0 +1,59 @@
+name: Update Addon Version
+
+on:
+  push:
+    paths:
+      - '**.lua'
+    branches: [ main, master ]
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[version]')"
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Нужно для подсчета всех коммитов
+
+      - name: Get base version and calculate build
+        id: version
+        run: |
+          # Читаем базовую версию из файла (или используем дефолтную)
+          if [ -f ".base-version" ]; then
+            BASE_VERSION=$(cat .base-version)
+          else
+            # Ищем базовую версию в TOC файле или используем дефолт
+            if grep -q "## Version:" AferistHelper.toc; then
+              CURRENT_VERSION=$(grep "## Version:" AferistHelper.toc | cut -d' ' -f3)
+              # Извлекаем major.minor из текущей версии (1.0.123 -> 1.0)
+              BASE_VERSION=$(echo "$CURRENT_VERSION" | cut -d. -f1-2)
+            else
+              BASE_VERSION="1.0"
+            fi
+          fi
+          
+          # Считаем общее количество коммитов (это будет build number)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          
+          NEW_VERSION="${BASE_VERSION}.${BUILD_NUMBER}"
+          
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Base: $BASE_VERSION, Build: $BUILD_NUMBER, Version: $NEW_VERSION"
+
+      - name: Update TOC version
+        run: |
+          echo "Updating AferistHelper.toc to version: ${{ steps.version.outputs.new_version }}"
+          sed -i "s/^## Version:.*$/## Version: ${{ steps.version.outputs.new_version }}/" AferistHelper.toc
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add AferistHelper.toc
+          git commit -m "chore: auto-build ${{ steps.version.outputs.new_version }} [version]"
+          git push
