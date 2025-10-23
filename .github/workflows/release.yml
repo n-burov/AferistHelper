@@ -62,14 +62,14 @@ jobs:
           body: |
             ## AferistHelper ${{ steps.get_version.outputs.version }}
             
-            ### 📦 Automatic Release
+            ### 📦 Новый релиз
             
-            **Download:** `AferistHelper-${{ steps.get_version.outputs.version }}.zip`
+            **Скачать:** `AferistHelper-${{ steps.get_version.outputs.version }}.zip`
             
-            **Installation:**
-            1. Extract to `World of Warcraft/_classic_/Interface/AddOns/`
-            2. Restart the game
+            **Установка:**
+            1. Распакуйте архив по пути: `World of Warcraft/_classic_/Interface/AddOns/`
+            2. Перезапустите игру или используйте команду /reload в чате
             
-            *Automatically generated release*
+            
           files: |
             AferistHelper-${{ steps.get_version.outputs.version }}.zip
