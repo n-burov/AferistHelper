@@ -3,7 +3,7 @@ name: Create Addon Release
 on:
   push:
     tags:
-      - 'v*'  # Запускается при пуше любых тегов начинающихся с 'v'
+      - 'v*'
 
 permissions:
   contents: write
@@ -18,60 +18,58 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup GitHub CLI
+        run: |
+          # Устанавливаем GitHub CLI для управления релизами
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+
       - name: Extract version from tag
         id: get_version
         run: |
-          # Убираем 'v' из тега (v1.2.3 → 1.2.3)
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Building version: $VERSION"
 
+      - name: Clean up existing release
+        run: |
+          # Удаляем существующий релиз если есть
+          gh release delete "${{ github.ref_name }}" --yes || true
+          echo "✅ Cleaned up existing release if any"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create addon directory structure
         run: |
-          # Создаем временную папку с правильной структурой для WoW
           mkdir -p AferistHelper
           cp AferistHelper.toc AferistHelper/
           cp AferistHelper.lua AferistHelper/
           cp MuteManager.lua AferistHelper/
           cp AferistHelper_Configs.lua AferistHelper/
-          cp README.md AferistHelper/
 
       - name: Create ZIP archive
         run: |
-          # Создаем ZIP архив с именем папки аддона
           zip -r "AferistHelper-${{ steps.get_version.outputs.version }}.zip" AferistHelper/
           echo "📁 Created: AferistHelper-${{ steps.get_version.outputs.version }}.zip"
-          
-          # Показываем содержимое архива
-          echo "📋 Archive contents:"
-          unzip -l "AferistHelper-${{ steps.get_version.outputs.version }}.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          name: AferistHelper ${{ steps.get_version.outputs.version }}  # ← исправлено с release_name на name
+          tag_name: ${{ github.ref_name }}
+          name: AferistHelper ${{ steps.get_version.outputs.version }}
           body: |
             ## AferistHelper ${{ steps.get_version.outputs.version }}
             
             ### 📦 Automatic Release
             
-            **Important:** Download the correct file below!
+            **Download:** `AferistHelper-${{ steps.get_version.outputs.version }}.zip`
             
-            ### ✅ Download & Installation:
-            1. **Download** `AferistHelper-${{ steps.get_version.outputs.version }}.zip`
-            2. **Extract** to `World of Warcraft/_classic_/Interface/AddOns/`
-            3. **Folder structure** should be: `.../AddOns/AferistHelper/AferistHelper.toc`
-            4. **Restart** the game
-            
-            ### 📁 Files included:
-            - AferistHelper.toc
-            - AferistHelper.lua  
-            - MuteManager.lua
-            - AferistHelper_Configs.lua
-            - README.md
+            **Installation:**
+            1. Extract to `World of Warcraft/_classic_/Interface/AddOns/`
+            2. Restart the game
             
             *Automatically generated release*
           files: |
             AferistHelper-${{ steps.get_version.outputs.version }}.zip
-          generate_release_notes: true
