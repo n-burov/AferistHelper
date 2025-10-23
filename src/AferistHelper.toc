@@ -12,9 +12,10 @@
 ## X-Website: https://github.com/n-burov/AferistHelper
 ## X-License: MIT
 ## X-Curse-Project-ID: 1369891
-## X-Sirus-Update: https://github.com/n-burov/AferistHelper/tree/main
+## X-Sirus-Update: https://github.com/n-burov/AferistHelper/tree/main/src
 
 AferistHelper.lua
 AferistHelper_Configs.lua
 
 MuteManager.lua
+
