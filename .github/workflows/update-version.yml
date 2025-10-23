@@ -34,7 +34,7 @@ jobs:
       - name: Update TOC version
         run: |
           # Обновляем TOC файл в папке src/
-          sed -i "s/^## Version:.*$/## Version: ${{ steps.version.outputs.new_version }}/" src/AferistHelper.toc
+          sed -i "s/^## Version:.*$/## Version: ${{ steps.version.outputs.new_version }}/" AferistHelper.toc
 
       - name: Commit and push changes
         run: |
