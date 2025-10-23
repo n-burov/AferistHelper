@@ -3,7 +3,7 @@ name: Update Addon Version
 on:
   push:
     paths:
-      - 'src/**.lua'    # Теперь следим за lua файлами в src/
+      - '**.lua'    # Теперь следим за lua файлами в src/
     branches: [ main, master ]
 
 jobs:
