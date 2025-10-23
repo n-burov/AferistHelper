@@ -50,22 +50,26 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref }}
-          release_name: AferistHelper ${{ steps.get_version.outputs.version }}
+          name: AferistHelper ${{ steps.get_version.outputs.version }}  # ← исправлено с release_name на name
           body: |
             ## AferistHelper ${{ steps.get_version.outputs.version }}
             
             ### 📦 Automatic Release
             
-            **Installation:**
-            1. Download the ZIP file
-            2. Extract to `World of Warcraft/_classic_/Interface/AddOns/`
-            3. Restart the game
+            **Important:** Download the correct file below!
+            
+            ### ✅ Download & Installation:
+            1. **Download** `AferistHelper-${{ steps.get_version.outputs.version }}.zip`
+            2. **Extract** to `World of Warcraft/_classic_/Interface/AddOns/`
+            3. **Folder structure** should be: `.../AddOns/AferistHelper/AferistHelper.toc`
+            4. **Restart** the game
             
             ### 📁 Files included:
             - AferistHelper.toc
-            - AferistHelper.lua
+            - AferistHelper.lua  
             - MuteManager.lua
             - AferistHelper_Configs.lua
+            - README.md
             
             *Automatically generated release*
           files: |
