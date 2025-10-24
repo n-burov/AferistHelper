@@ -17,13 +17,11 @@ local MuteManager = {
 
 local minimapButton
 
--- Функция проверки прав гильдии
 function CheckGuildPermissions()
     if not IsInGuild() then
         return false
     end
     
-    -- Проверяем права на изменение офицерских заметок
     if not CanEditOfficerNote() then
         return false
     end
@@ -35,8 +33,7 @@ function CheckGuildPermissions()
         return false
     end
     
-    -- Для WoW 3.3.5 проверяем ранг - обычно ранг 0-1 это лидер/офицеры
-    if playerInfo.rankIndex > 1 then
+    if playerInfo.rankIndex >= 2 then
         return false
     end
     
@@ -55,7 +52,6 @@ function CreateMinimapButton()
     minimapButton.icon:SetSize(20, 20)
     minimapButton.icon:SetPoint("CENTER")
     
-    -- Устанавливаем иконку в зависимости от прав
     if CheckGuildPermissions() then
         minimapButton.icon:SetTexture("Interface\\Icons\\INV_Misc_Book_09")
     else
@@ -100,7 +96,6 @@ end
 function ToggleMinimapMenu()
     local menuFrame = CreateFrame("Frame", "AferistHelperMinimapMenu", UIParent, "UIDropDownMenuTemplate")
     
-    -- Проверяем права для отображения функционала гильдии
     local hasGuildPermissions = CheckGuildPermissions()
     
     local menuItems = {
@@ -125,7 +120,6 @@ function ToggleMinimapMenu()
         }
     }
     
-    -- Добавляем раздел управления гильдией только если есть права
     if hasGuildPermissions then
         table.insert(menuItems, {
             text = "Управление гильдией",
@@ -229,7 +223,6 @@ end
 function MuteManager:CreateMainTab(parent)
     local yOffset = -10
     
-    -- Поиск игрока
     local searchLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     searchLabel:SetPoint("TOPLEFT", 10, yOffset)
     searchLabel:SetText("Поиск игрока:")
@@ -257,7 +250,6 @@ function MuteManager:CreateMainTab(parent)
     
     yOffset = yOffset - 30
     
-    -- Информация об игроке
     local infoFrame = CreateFrame("Frame", nil, parent)
     infoFrame:SetPoint("TOPLEFT", 10, yOffset)
     infoFrame:SetPoint("TOPRIGHT", -10, yOffset)
@@ -286,7 +278,6 @@ function MuteManager:CreateMainTab(parent)
     
     yOffset = yOffset - 210
     
-    -- Управление заметками
     local notesLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     notesLabel:SetPoint("TOPLEFT", 10, yOffset)
     notesLabel:SetText("Управление заметками:")
@@ -294,7 +285,6 @@ function MuteManager:CreateMainTab(parent)
     
     yOffset = yOffset - 25
     
-    -- Публичная заметка
     local publicNoteLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     publicNoteLabel:SetPoint("TOPLEFT", 20, yOffset)
     publicNoteLabel:SetText("Публичная заметка:")
@@ -324,7 +314,6 @@ function MuteManager:CreateMainTab(parent)
     
     yOffset = yOffset - 30
     
-    -- Офицерская заметка
     local officerNoteLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     officerNoteLabel:SetPoint("TOPLEFT", 20, yOffset)
     officerNoteLabel:SetText("Офицерская заметка:")
@@ -354,7 +343,6 @@ function MuteManager:CreateMainTab(parent)
     
     yOffset = yOffset - 40
     
-    -- Управление рангом
     local rankLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     rankLabel:SetPoint("TOPLEFT", 10, yOffset)
     rankLabel:SetText("Изменение ранга:")
@@ -377,7 +365,6 @@ function MuteManager:CreateMainTab(parent)
     
     yOffset = yOffset - 40
     
-    -- Система мута
     local muteLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     muteLabel:SetPoint("TOPLEFT", 10, yOffset)
     muteLabel:SetText("Система мута:")
@@ -438,7 +425,6 @@ function MuteManager:CreateMainTab(parent)
     unmuteBtn:SetPoint("TOPLEFT", 150, yOffset)
     unmuteBtn:SetText("Размутить")
     
-    -- Сохраняем ссылки на элементы
     parent.nameEdit = nameEdit
     parent.searchBtn = searchBtn
     parent.infoText = infoText
@@ -453,7 +439,6 @@ function MuteManager:CreateMainTab(parent)
     parent.muteBtn = muteBtn
     parent.unmuteBtn = unmuteBtn
     
-    -- Обработчики событий
     searchBtn:SetScript("OnClick", function()
         self:SearchPlayer(nameEdit:GetText())
     end)
@@ -516,7 +501,6 @@ function MuteManager:SearchPlayer(playerName)
         return
     end
     
-    -- Обновляем информацию об игроке
     local infoText = string.format(
         "|cFFFFFF00Игрок:|r |cFFFFFFFF%s|r\n" ..
         "|cFFFFFF00Ранг:|r |cFFFFFFFF%s (%d)|r\n" ..
@@ -537,7 +521,6 @@ function MuteManager:SearchPlayer(playerName)
         playerInfo.officernote or "нет"
     )
     
-    -- Проверяем мут
     if self.db.activeMutes[playerName] then
         local muteData = self.db.activeMutes[playerName]
         local remaining = math.max(0, muteData.expireTime - time())
@@ -558,14 +541,11 @@ function MuteManager:SearchPlayer(playerName)
     
     self.tabFrames[1].infoText:SetText(infoText)
     
-    -- Заполняем поля редактирования
     self.tabFrames[1].publicNoteEdit:SetText(playerInfo.note or "")
     self.tabFrames[1].officerNoteEdit:SetText(playerInfo.officernote or "")
     
-    -- Обновляем выпадающий список рангов
     UIDropDownMenu_SetText(self.tabFrames[1].rankDropdown, playerInfo.rankIndex .. " - " .. playerInfo.rankName)
     
-    -- Сохраняем информацию о текущем игроке
     self.currentPlayer = playerInfo
 end
 
@@ -577,7 +557,7 @@ function MuteManager:SavePublicNote(playerName, noteText)
     
     if self:SetGuildMemberNote(playerName, noteText, false) then
         self:ShowNotification("Публичная заметка обновлена")
-        self:SearchPlayer(playerName) -- Обновляем информацию
+        self:SearchPlayer(playerName)
     else
         self:ShowNotification("Ошибка обновления заметки")
     end
@@ -591,7 +571,7 @@ function MuteManager:SaveOfficerNote(playerName, noteText)
     
     if self:SetGuildMemberNote(playerName, noteText, true) then
         self:ShowNotification("Офицерская заметка обновлена")
-        self:SearchPlayer(playerName) -- Обновляем информацию
+        self:SearchPlayer(playerName)
     else
         self:ShowNotification("Ошибка обновления заметки")
     end
@@ -644,7 +624,7 @@ function MuteManager:ChangePlayerRank(playerName)
     if self:ExecuteRankCommands(playerInfo.fullName, targetRankIndex) then
         self:ShowNotification("Ранг изменен")
         self:DelayedExecute(3, function()
-            self:SearchPlayer(playerName) -- Обновляем информацию после задержки
+            self:SearchPlayer(playerName)
         end)
     else
         self:ShowNotification("Ошибка изменения ранга")
@@ -667,7 +647,7 @@ function MuteManager:MuteFromUI(playerName, timeText, reason)
         self.tabFrames[1].timeEdit:SetText("")
         self.tabFrames[1].reasonEdit:SetText("")
         self:DelayedExecute(2, function()
-            self:SearchPlayer(playerName) -- Обновляем информацию
+            self:SearchPlayer(playerName)
         end)
     end
 end
@@ -680,12 +660,11 @@ function MuteManager:UnmuteFromUI(playerName)
     
     if self:UnmutePlayer(playerName) then
         self:DelayedExecute(2, function()
-            self:SearchPlayer(playerName) -- Обновляем информацию
+            self:SearchPlayer(playerName)
         end)
     end
 end
 
--- Остальные функции остаются без изменений (CreateActiveMutesTab, CreateSettingsTab, CreateCleanupTab и т.д.)
 function MuteManager:CreateActiveMutesTab(parent)
     local scrollFrame = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT", 10, -10)
@@ -822,8 +801,8 @@ function MuteManager:CreateCleanupTab(parent)
     daysLabel:SetText("Дней неактивности:")
     
     local daysEdit = CreateFrame("EditBox", nil, parent)
-    daysEdit:SetSize(60, 20)
-    daysEdit:SetPoint("TOPLEFT", 130, yOffset)
+    daysEdit:SetSize(30, 20)
+    daysEdit:SetPoint("TOPLEFT", 135, yOffset)
     daysEdit:SetAutoFocus(false)
     daysEdit:SetNumeric(true)
     daysEdit:SetFontObject("GameFontNormal")
@@ -839,18 +818,69 @@ function MuteManager:CreateCleanupTab(parent)
     daysEdit:SetBackdropColor(0, 0, 0, 0.5)
     daysEdit:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
     
-    daysEdit:SetScript("OnTextChanged", function(self)
-        local days = tonumber(self:GetText())
-        if days and days > 0 then
-            MuteManager.db.settings.cleanupDays = days
-        end
-    end)
+    yOffset = yOffset - 30
     
-    daysEdit:SetScript("OnEscapePressed", function(self)
-        self:ClearFocus()
-    end)
+    local levelLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    levelLabel:SetPoint("TOPLEFT", 10, yOffset)
+    levelLabel:SetText("Макс. уровень для кика:")
+    
+    local levelEdit = CreateFrame("EditBox", nil, parent)
+    levelEdit:SetSize(30, 20)
+    levelEdit:SetPoint("TOPLEFT", 160, yOffset)
+    levelEdit:SetAutoFocus(false)
+    levelEdit:SetNumeric(true)
+    levelEdit:SetFontObject("GameFontNormal")
+    levelEdit:SetTextInsets(8, 8, 0, 0)
+    levelEdit:SetText("80")
+    
+    levelEdit:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        tile = true, tileSize = 16, edgeSize = 1,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 }
+    })
+    levelEdit:SetBackdropColor(0, 0, 0, 0.5)
+    levelEdit:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
+    
+    yOffset = yOffset - 40
+    
+    local notesLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    notesLabel:SetPoint("TOPLEFT", 10, yOffset)
+    notesLabel:SetText("Исключить из поиска:")
+    notesLabel:SetTextColor(1, 1, 0)
+    
+    yOffset = yOffset - 25
+    
+    local excludePublicNoteCheckbox = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    excludePublicNoteCheckbox:SetPoint("TOPLEFT", 20, yOffset)
+    excludePublicNoteCheckbox:SetChecked(false)
+    
+    local excludePublicNoteLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    excludePublicNoteLabel:SetPoint("LEFT", excludePublicNoteCheckbox, "RIGHT", 5, 0)
+    excludePublicNoteLabel:SetText("Игроков с публичной заметкой")
+    
+    local excludeOfficerNoteCheckbox = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    excludeOfficerNoteCheckbox:SetPoint("TOPLEFT", 250, yOffset)
+    excludeOfficerNoteCheckbox:SetChecked(false)
+    
+    local excludeOfficerNoteLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    excludeOfficerNoteLabel:SetPoint("LEFT", excludeOfficerNoteCheckbox, "RIGHT", 5, 0)
+    excludeOfficerNoteLabel:SetText("Игроков с офицерской заметкой")
     
     yOffset = yOffset - 30
+    
+    local ranksLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    ranksLabel:SetPoint("TOPLEFT", 10, yOffset)
+    ranksLabel:SetText("Ранги для проверки:")
+    ranksLabel:SetTextColor(1, 1, 0)
+    
+    yOffset = yOffset - 25
+    
+    local ranksContainer = CreateFrame("Frame", nil, parent)
+    ranksContainer:SetPoint("TOPLEFT", 10, yOffset)
+    ranksContainer:SetSize(280, 75)
+    
+    yOffset = yOffset - 80
     
     local findBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     findBtn:SetSize(120, 25)
@@ -858,28 +888,16 @@ function MuteManager:CreateCleanupTab(parent)
     findBtn:SetText("Найти неактивных")
     findBtn:SetScript("OnClick", function()
         local days = tonumber(daysEdit:GetText()) or 30
+        local maxLevel = tonumber(levelEdit:GetText()) or 80
+        local selectedRanks = self:GetSelectedRanks()
+        local excludePublicNote = excludePublicNoteCheckbox:GetChecked()
+        local excludeOfficerNote = excludeOfficerNoteCheckbox:GetChecked()
+        
         self.db.settings.cleanupDays = days
-        self:FindInactivePlayers(days)
+        self:FindInactivePlayers(days, maxLevel, selectedRanks, excludePublicNote, excludeOfficerNote)
     end)
     
     yOffset = yOffset - 40
-    
-    local candidatesLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    candidatesLabel:SetPoint("TOPLEFT", 10, yOffset)
-    candidatesLabel:SetText("Кандидаты на удаление:")
-    
-    yOffset = yOffset - 20
-    
-    local scrollFrame = CreateFrame("ScrollFrame", "MuteManagerCleanupScroll", parent, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", 10, yOffset)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -30, 50)
-    
-    local scrollChild = CreateFrame("Frame")
-    scrollFrame:SetScrollChild(scrollChild)
-    scrollChild:SetSize(440, 400)
-    
-    local checkboxesContainer = CreateFrame("Frame", nil, scrollChild)
-    checkboxesContainer:SetAllPoints()
     
     local removeBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     removeBtn:SetSize(120, 25)
@@ -895,11 +913,127 @@ function MuteManager:CreateCleanupTab(parent)
     statusText:SetJustifyH("LEFT")
     statusText:SetText("Нажмите 'Найти неактивных' для поиска")
     
+    local candidatesFrame = CreateFrame("Frame", "MuteManagerCandidatesFrame", UIParent, "BasicFrameTemplate")
+    candidatesFrame:SetSize(500, 550)
+    candidatesFrame:SetPoint("LEFT", parent, "RIGHT", 10, 0) 
+    candidatesFrame:SetMovable(true)
+    candidatesFrame:EnableMouse(true)
+    candidatesFrame:RegisterForDrag("LeftButton")
+    candidatesFrame:SetScript("OnDragStart", candidatesFrame.StartMoving)
+    candidatesFrame:SetScript("OnDragStop", candidatesFrame.StopMovingOrSizing)
+    candidatesFrame:SetFrameStrata("DIALOG")
+    
+    candidatesFrame.title = candidatesFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    candidatesFrame.title:SetPoint("TOP", 0, -5)
+    candidatesFrame.title:SetText("Список кандидатов на удаление")
+    
+    local candidatesScrollFrame = CreateFrame("ScrollFrame", "MuteManagerCandidatesScroll", candidatesFrame, "UIPanelScrollFrameTemplate")
+    candidatesScrollFrame:SetPoint("TOPLEFT", 10, -30)
+    candidatesScrollFrame:SetPoint("BOTTOMRIGHT", -30, 40)
+    
+    local candidatesScrollChild = CreateFrame("Frame")
+    candidatesScrollFrame:SetScrollChild(candidatesScrollChild)
+    candidatesScrollChild:SetSize(460, 500)
+    
+    local checkboxesContainer = CreateFrame("Frame", nil, candidatesScrollChild)
+    checkboxesContainer:SetAllPoints()
+    
+    local closeCandidatesBtn = CreateFrame("Button", nil, candidatesFrame, "UIPanelButtonTemplate")
+    closeCandidatesBtn:SetSize(100, 25)
+    closeCandidatesBtn:SetPoint("BOTTOM", 0, 10)
+    closeCandidatesBtn:SetText("Закрыть")
+    closeCandidatesBtn:SetScript("OnClick", function()
+        candidatesFrame:Hide()
+    end)
+    
+    candidatesFrame:Hide()
+    
     parent.daysEdit = daysEdit
-    parent.scrollFrame = scrollFrame
+    parent.levelEdit = levelEdit
+    parent.excludePublicNoteCheckbox = excludePublicNoteCheckbox
+    parent.excludeOfficerNoteCheckbox = excludeOfficerNoteCheckbox
+    parent.ranksContainer = ranksContainer
+    parent.candidatesFrame = candidatesFrame
+    parent.candidatesScrollFrame = candidatesScrollFrame
     parent.checkboxesContainer = checkboxesContainer
     parent.statusText = statusText
     parent.removeBtn = removeBtn
+    
+    self:CreateRankCheckboxes(ranksContainer)
+end
+
+function MuteManager:CreateRankCheckboxes(container)
+    if container.checkboxes then
+        for _, checkbox in pairs(container.checkboxes) do
+            checkbox:Hide()
+            if checkbox.label then
+                checkbox.label:Hide()
+            end
+        end
+    end
+    
+    local ranks = {}
+    for i = 0, #self.db.guildRanks do
+        if self.db.guildRanks[i] then
+            table.insert(ranks, {index = i, name = self.db.guildRanks[i]})
+        end
+    end
+    
+    table.sort(ranks, function(a, b) return a.index < b.index end)
+    
+    local checkboxes = {}
+    local maxRows = 3
+    local columnWidth = 140
+    
+    for i, rankData in ipairs(ranks) do
+        local row = (i - 1) % maxRows
+        local column = math.floor((i - 1) / maxRows)
+        
+        local xOffset = column * columnWidth
+        local yOffset = row * -25
+        
+        local checkbox = CreateFrame("CheckButton", nil, container, "UICheckButtonTemplate")
+        checkbox:SetPoint("TOPLEFT", xOffset, yOffset)
+        checkbox:SetChecked(true)
+        checkbox.rankIndex = rankData.index
+        
+        local label = container:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        label:SetPoint("LEFT", checkbox, "RIGHT", 5, 0)
+        label:SetText(rankData.index .. " - " .. rankData.name)
+        checkbox.label = label
+        
+        checkboxes[rankData.index] = checkbox
+    end
+    
+    local numColumns = math.ceil(#ranks / maxRows)
+    local containerHeight = maxRows * 25
+    
+    container.checkboxes = checkboxes
+    container:SetHeight(containerHeight)
+    container:SetWidth(numColumns * columnWidth)
+end
+
+function MuteManager:GetSelectedRanks()
+    local selectedRanks = {}
+    local container = self.tabFrames[4].ranksContainer
+    
+    if container and container.checkboxes then
+        for rankIndex, checkbox in pairs(container.checkboxes) do
+            if checkbox:GetChecked() then
+                table.insert(selectedRanks, rankIndex)
+            end
+        end
+    end
+    
+    if #selectedRanks == 0 then
+        for i = 0, #self.db.guildRanks do
+            if self.db.guildRanks[i] then
+                table.insert(selectedRanks, i)
+            end
+        end
+    end
+    
+    return selectedRanks
 end
 
 function MuteManager:ShowTab(tabIndex)
@@ -914,6 +1048,12 @@ function MuteManager:ShowTab(tabIndex)
                 self.cleanupCandidates = {}
                 self.tabFrames[4].statusText:SetText("Нажмите 'Найти неактивных' для поиска")
                 self.tabFrames[4].removeBtn:Disable()
+                if self.tabFrames[4].candidatesFrame then
+                    self.tabFrames[4].candidatesFrame:Hide()
+                end
+                if self.tabFrames[4].ranksContainer then
+                    self:CreateRankCheckboxes(self.tabFrames[4].ranksContainer)
+                end
             end
         else
             frame:Hide()
@@ -1017,7 +1157,7 @@ function MuteManager:UpdateStats()
     statsText:SetText(text)
 end
 
-function MuteManager:FindInactivePlayers(daysThreshold)
+function MuteManager:FindInactivePlayers(daysThreshold, maxLevel, selectedRanks, excludePublicNote, excludeOfficerNote)
     if not IsInGuild() then
         self:ShowNotification("Ошибка: Вы не в гильдии")
         return
@@ -1027,45 +1167,86 @@ function MuteManager:FindInactivePlayers(daysThreshold)
     local thresholdTime = currentTime - (daysThreshold * 86400)
     self.cleanupCandidates = {}
     
+    local allowedRanks = {}
+    for _, rank in ipairs(selectedRanks) do
+        allowedRanks[rank] = true
+    end
+    
     GuildRoster()
     
     for i = 1, GetNumGuildMembers() do
         local name, rank, rankIndex, level, class, zone, note, officernote, online, status = GetGuildRosterInfo(i)
         
-        local yearsOffline, monthsOffline, daysOffline, hoursOffline = GetGuildRosterLastOnline(i)
-        local totalDaysOffline = (yearsOffline or 0) * 365 + (monthsOffline or 0) * 30 + (daysOffline or 0)
-        
-        if totalDaysOffline >= daysThreshold and not online then
-            table.insert(self.cleanupCandidates, {
-                name = name,
-                rank = rank,
-                rankIndex = rankIndex,
-                daysOffline = totalDaysOffline,
-                officernote = officernote or "",
-                class = class or "Неизвестно",
-                level = level or "??"
-            })
+        if allowedRanks[rankIndex] then
+            if level <= maxLevel then
+                local hasPublicNote = note and note ~= ""
+                local hasOfficerNote = officernote and officernote ~= ""
+                
+                local noteFilterPass = true
+                
+                if excludePublicNote and hasPublicNote then
+                    noteFilterPass = false
+                end
+                
+                if excludeOfficerNote and hasOfficerNote then
+                    noteFilterPass = false
+                end
+                
+                if noteFilterPass then
+                    local yearsOffline, monthsOffline, daysOffline, hoursOffline = GetGuildRosterLastOnline(i)
+                    local totalDaysOffline = (yearsOffline or 0) * 365 + (monthsOffline or 0) * 30 + (daysOffline or 0)
+                    
+                    if totalDaysOffline >= daysThreshold and not online then
+                        table.insert(self.cleanupCandidates, {
+                            name = name,
+                            rank = rank,
+                            rankIndex = rankIndex,
+                            level = level,
+                            class = class or "Неизвестно",
+                            daysOffline = totalDaysOffline,
+                            note = note or "",
+                            officernote = officernote or "",
+                            zone = zone or "Неизвестно"
+                        })
+                    end
+                end
+            end
         end
     end
     
     self:UpdateCleanupList()
+    
+    local excludeText = ""
+    if excludePublicNote then
+        excludeText = excludeText .. ", исключая с публичной заметкой"
+    end
+    if excludeOfficerNote then
+        excludeText = excludeText .. ", исключая с офицерской заметкой"
+    end
+    
+    local statsText = string.format("Найдено: %d игроков (уровень ≤%d, ранги: %s%s)", 
+        #self.cleanupCandidates, maxLevel, table.concat(selectedRanks, ","), excludeText)
+    self.tabFrames[4].statusText:SetText(statsText)
 end
 
 function MuteManager:UpdateCleanupList()
     local parent = self.tabFrames[4]
     local container = parent.checkboxesContainer
     local statusText = parent.statusText
+    local candidatesFrame = parent.candidatesFrame
     
-    for i = 1, #container do
-        if container[i] then
-            container[i]:Hide()
+    if container.candidateFrames then
+        for _, frame in pairs(container.candidateFrames) do
+            frame:Hide()
         end
     end
-    container.checkboxes = {}
+    
+    container.candidateFrames = {}
     
     if #self.cleanupCandidates == 0 then
         statusText:SetText("Неактивные игроки не найдены")
         parent.removeBtn:Disable()
+        candidatesFrame:Hide()
         return
     end
     
@@ -1073,43 +1254,91 @@ function MuteManager:UpdateCleanupList()
         return a.daysOffline > b.daysOffline 
     end)
     
-    local yOffset = 0
-    local maxWidth = 420
+    local columnWidth = 220
+    local maxRows = math.ceil(#self.cleanupCandidates / 2)
+    local frameHeight = 70
     
     for i, candidate in ipairs(self.cleanupCandidates) do
-        local checkbox = CreateFrame("CheckButton", nil, container, "UICheckButtonTemplate")
-        checkbox:SetPoint("TOPLEFT", 10, yOffset)
+        local column = math.floor((i - 1) / maxRows)
+        local row = (i - 1) % maxRows
+        
+        local xOffset = column * columnWidth
+        local yOffset = row * -frameHeight
+        
+        local candidateFrame = CreateFrame("Frame", nil, container)
+        candidateFrame:SetPoint("TOPLEFT", xOffset, yOffset)
+        candidateFrame:SetSize(columnWidth - 10, frameHeight)
+        
+        local checkbox = CreateFrame("CheckButton", nil, candidateFrame, "UICheckButtonTemplate")
+        checkbox:SetPoint("TOPLEFT", 5, -5)
         checkbox:SetChecked(true)
         checkbox.candidateIndex = i
         
-        local playerText = container:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        playerText:SetPoint("LEFT", checkbox, "RIGHT", 5, 0)
-        playerText:SetSize(maxWidth - 40, 30)
-        playerText:SetJustifyH("LEFT")
+        local nameText = candidateFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        nameText:SetPoint("TOPLEFT", 35, -5)
+        nameText:SetSize(columnWidth - 45, 15)
+        nameText:SetJustifyH("LEFT")
+        nameText:SetText(candidate.name .. " (" .. candidate.level .. " ур.)")
         
-        local infoText = string.format("|cFFFFFFFF%s|r |cFFAAAAAA(%d ур.)|r\n%s | %d дн. | %s",
-            candidate.name,
-            candidate.level,
-            candidate.class,
-            candidate.daysOffline,
-            candidate.officernote ~= "" and "|cFF00FF00Есть заметка|r" or "|cFFFF0000Нет заметки|r"
-        )
+        local rankText = candidateFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        rankText:SetPoint("TOPLEFT", 35, -20)
+        rankText:SetSize(columnWidth - 45, 12)
+        rankText:SetJustifyH("LEFT")
+        rankText:SetText("Ранг: " .. candidate.rank)
         
-        playerText:SetText(infoText)
+        local daysText = candidateFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        daysText:SetPoint("TOPLEFT", 35, -32)
+        daysText:SetSize(columnWidth - 45, 12)
+        daysText:SetJustifyH("LEFT")
+        daysText:SetText("Неактивен: " .. candidate.daysOffline .. " дн.")
         
-        container.checkboxes[i] = checkbox
-        yOffset = yOffset - 35
+        local publicNoteText = candidateFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        publicNoteText:SetPoint("TOPLEFT", 35, -44)
+        publicNoteText:SetSize(columnWidth - 45, 12)
+        publicNoteText:SetJustifyH("LEFT")
         
-        if i >= 15 then
-            break
+        local publicNote = candidate.note or ""
+        if publicNote == "" then 
+            publicNote = "нет" 
+            publicNoteText:SetTextColor(0.7, 0.7, 0.7)
+        else
+            publicNoteText:SetTextColor(1, 1, 1)
         end
+        publicNoteText:SetText("Публичная: " .. publicNote)
+        
+        local officerNoteText = candidateFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        officerNoteText:SetPoint("TOPLEFT", 35, -56)
+        officerNoteText:SetSize(columnWidth - 45, 12)
+        officerNoteText:SetJustifyH("LEFT")
+        
+        local officerNote = candidate.officernote or ""
+        if officerNote == "" then 
+            officerNote = "нет" 
+            officerNoteText:SetTextColor(0.7, 0.7, 0.7)
+        else
+            officerNoteText:SetTextColor(1, 1, 1)
+        end
+        officerNoteText:SetText("Офицерская: " .. officerNote)
+        
+        candidateFrame.checkbox = checkbox
+        candidateFrame.nameText = nameText
+        candidateFrame.rankText = rankText
+        candidateFrame.daysText = daysText
+        candidateFrame.publicNoteText = publicNoteText
+        candidateFrame.officerNoteText = officerNoteText
+        
+        container.candidateFrames[i] = candidateFrame
     end
     
-    statusText:SetText(string.format("Найдено: %d игроков. Отмечено: %d", 
-        #self.cleanupCandidates, #self.cleanupCandidates))
+    local totalHeight = maxRows * frameHeight
+    container:SetHeight(math.max(totalHeight, 100))
+    container:SetWidth(columnWidth * 2)
+    
     parent.removeBtn:Enable()
     
-    container:SetHeight(math.abs(yOffset) + 10)
+    candidatesFrame:Show()
+    
+    statusText:SetText(string.format("Найдено: %d игроков", #self.cleanupCandidates))
 end
 
 function MuteManager:RemoveSelectedPlayers()
@@ -1117,22 +1346,27 @@ function MuteManager:RemoveSelectedPlayers()
     local container = parent.checkboxesContainer
     local statusText = parent.statusText
     
-    if not container.checkboxes then
+    if not container.candidateFrames then
         self:ShowNotification("Нет игроков для удаления")
         return
     end
     
     local removedCount = 0
     local skippedCount = 0
+    local errors = {}
     
-    for i, checkbox in ipairs(container.checkboxes) do
-        if checkbox:GetChecked() and self.cleanupCandidates[i] then
+    for i, candidateFrame in ipairs(container.candidateFrames) do
+        if candidateFrame.checkbox:GetChecked() and self.cleanupCandidates[i] then
             local candidate = self.cleanupCandidates[i]
             
             if candidate.rankIndex > 0 then
-                GuildUninvite(candidate.name)
-                removedCount = removedCount + 1
-                self:Print("Удален: " .. candidate.name .. " (" .. candidate.daysOffline .. " дней оффлайн)")
+                local success = GuildUninvite(candidate.name)
+                if success then
+                    removedCount = removedCount + 1
+                    self:Print("Удален: " .. candidate.name .. " (" .. candidate.daysOffline .. " дней оффлайн, ур. " .. candidate.level .. ")")
+                else
+                    table.insert(errors, candidate.name)
+                end
             else
                 skippedCount = skippedCount + 1
                 self:Print("Пропущен: " .. candidate.name .. " (лидер гильдии)")
@@ -1142,10 +1376,18 @@ function MuteManager:RemoveSelectedPlayers()
     
     self:DelayedExecute(2, function()
         GuildRoster()
-        self:FindInactivePlayers(self.db.settings.cleanupDays)
+        local days = tonumber(parent.daysEdit:GetText()) or 30
+        local maxLevel = tonumber(parent.levelEdit:GetText()) or 80
+        local selectedRanks = self:GetSelectedRanks()
+        self:FindInactivePlayers(days, maxLevel, selectedRanks)
     end)
     
-    statusText:SetText(string.format("Удалено: %d, Пропущено: %d", removedCount, skippedCount))
+    local statusMsg = string.format("Удалено: %d, Пропущено: %d", removedCount, skippedCount)
+    if #errors > 0 then
+        statusMsg = statusMsg .. ", Ошибок: " .. #errors
+    end
+    
+    statusText:SetText(statusMsg)
     self:ShowNotification("Удаление завершено")
 end
 
@@ -1245,10 +1487,8 @@ function MuteManager:ADDON_LOADED(addonName)
         self:CreateMainWindow()
         self.mainFrame:Hide()
         
-        -- Создаем кнопку только если есть права или для всех (на ваше усмотрение)
         CreateMinimapButton()
         
-        -- Скрываем окно MuteManager если нет прав
         if not CheckGuildPermissions() then
             self.mainFrame:Hide()
         end
@@ -1260,6 +1500,10 @@ end
 
 function MuteManager:GUILD_ROSTER_UPDATE()
     self:UpdateGuildRanks()
+    
+    if self.tabFrames and self.tabFrames[4] and self.tabFrames[4].ranksContainer then
+        self:CreateRankCheckboxes(self.tabFrames[4].ranksContainer)
+    end
 end
 
 function MuteManager:UpdateGuildRanks()
@@ -1277,7 +1521,6 @@ function MuteManager:GetPlayerInfo(playerName)
     if not IsInGuild() then return nil end
     if not playerName or playerName == "" then return nil end
     
-    -- Добавляем безопасную проверку
     if not GetNumGuildMembers or GetNumGuildMembers() == 0 then
         return nil
     end
