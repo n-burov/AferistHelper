@@ -26,10 +26,9 @@ local MAX_MAIL_SHOW_COUNT = 2
 local function FixElvUIConflict()
     if not IsAddOnLoaded("ElvUI") then return end
     
-    -- Защищаем функцию от nil значений
     local orig_UnitPopup_AddDropDownTitle = UnitPopup_AddDropDownTitle
     UnitPopup_AddDropDownTitle = function(dropdownMenu, text, colorCode)
-        colorCode = colorCode or "FFFFFFFF" -- Защита от nil
+        colorCode = colorCode or "FFFFFFFF"
         return orig_UnitPopup_AddDropDownTitle(dropdownMenu, text, colorCode)
     end
 end
@@ -187,11 +186,59 @@ function CreateContentArea()
 end
 
 function CreateSearchPanel()
-    frame.searchBox = CreateFrame("EditBox", "AferistHelperSearchBox", frame, "SearchBoxTemplate")
+    frame.searchBox = CreateFrame("EditBox", "AferistHelperSearchBox", frame)
     frame.searchBox:SetPoint("TOPLEFT", 15, -30)
     frame.searchBox:SetSize(200, 20)
-    frame.searchBox:SetScript("OnTextChanged", function(self) SearchConfigs(self:GetText()) end)
-    frame.searchBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    frame.searchBox:SetAutoFocus(false)
+    frame.searchBox:SetFontObject("GameFontNormal")
+    frame.searchBox:SetTextInsets(8, 8, 0, 0)
+    
+    frame.searchBox:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        tile = true, tileSize = 16, edgeSize = 1,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 }
+    })
+    frame.searchBox:SetBackdropColor(0, 0, 0, 0.5)
+    frame.searchBox:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
+    
+    -- Устанавливаем плейсхолдер
+    frame.searchBox:SetText("Поиск...")
+    frame.searchBox:SetTextColor(0.5, 0.5, 0.5)
+    
+    frame.searchBox:SetScript("OnTextChanged", function(self)
+        SearchConfigs(self:GetText())
+    end)
+    
+    frame.searchBox:SetScript("OnEscapePressed", function(self) 
+        self:ClearFocus() 
+        -- При Escape возвращаем плейсхолдер
+        if self:GetText() == "" then
+            self:SetText("Поиск...")
+            self:SetTextColor(0.5, 0.5, 0.5)
+        end
+        SearchConfigs("")
+    end)
+    
+    frame.searchBox:SetScript("OnEnterPressed", function(self) 
+        self:ClearFocus() 
+    end)
+    
+    frame.searchBox:SetScript("OnEditFocusGained", function(self)
+        -- При фокусе очищаем если это плейсхолдер
+        if self:GetText() == "Поиск..." then
+            self:SetText("")
+            self:SetTextColor(1, 1, 1)
+        end
+    end)
+    
+    frame.searchBox:SetScript("OnEditFocusLost", function(self)
+        -- При потере фокуса возвращаем плейсхолдер если пусто
+        if self:GetText() == "" then
+            self:SetText("Поиск...")
+            self:SetTextColor(0.5, 0.5, 0.5)
+        end
+    end)
 end
 
 function CreateStatusBar()
