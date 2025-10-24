@@ -1341,7 +1341,101 @@ function MuteManager:UpdateCleanupList()
     statusText:SetText(string.format("Найдено: %d игроков", #self.cleanupCandidates))
 end
 
-function MuteManager:RemoveSelectedPlayers()
+function MuteManager:ShowRemoveConfirmation()
+    local selectedPlayers = self:GetSelectedCandidates()
+    
+    if #selectedPlayers == 0 then
+        self:ShowNotification("Не выбрано ни одного игрока для удаления")
+        return
+    end
+    
+    -- Создаем фрейм подтверждения
+    local confirmFrame = CreateFrame("Frame", "MuteManagerConfirmFrame", UIParent, "BasicFrameTemplate")
+    confirmFrame:SetSize(450, 300)
+    confirmFrame:SetPoint("CENTER")
+    confirmFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    confirmFrame:SetMovable(true)
+    confirmFrame:EnableMouse(true)
+    confirmFrame:RegisterForDrag("LeftButton")
+    confirmFrame:SetScript("OnDragStart", confirmFrame.StartMoving)
+    confirmFrame:SetScript("OnDragStop", confirmFrame.StopMovingOrSizing)
+    
+    confirmFrame.title = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    confirmFrame.title:SetPoint("TOP", 0, -5)
+    confirmFrame.title:SetText("Подтверждение удаления")
+    
+    -- Текст предупреждения
+    local warningText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    warningText:SetPoint("TOP", 0, -25)
+    warningText:SetText("Вы действительно хотите исключить следующих игроков?")
+    warningText:SetTextColor(1, 1, 0)
+    
+    -- Список игроков для удаления
+    local playersText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    playersText:SetPoint("TOPLEFT", 15, -50)
+    playersText:SetSize(420, 180)
+    playersText:SetJustifyH("LEFT")
+    playersText:SetJustifyV("TOP")
+    
+    -- Формируем список игроков
+    local playerList = {}
+    for i, candidate in ipairs(selectedPlayers) do
+        table.insert(playerList, string.format("%s(%d)%dд.", candidate.name, candidate.level, candidate.daysOffline))
+    end
+    
+    local displayText = table.concat(playerList, ", ")
+    
+    -- Если текст слишком длинный, обрезаем и добавляем "..."
+    if #displayText > 150 then
+        displayText = displayText:sub(1, 150) .. "..."
+    end
+    
+    playersText:SetText(displayText)
+    
+    -- Статистика
+    local statsText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    statsText:SetPoint("TOP", 0, -180)
+    statsText:SetText(string.format("Всего игроков: %d", #selectedPlayers))
+    statsText:SetTextColor(1, 0.8, 0)
+    
+    -- Кнопка подтверждения
+    local confirmBtn = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
+    confirmBtn:SetSize(120, 25)
+    confirmBtn:SetPoint("BOTTOMLEFT", 50, 10)
+    confirmBtn:SetText("Подтвердить")
+    confirmBtn:SetScript("OnClick", function()
+		self:PerformRemoveSelectedPlayers()
+		confirmFrame:Hide()
+	end)
+    
+    -- Кнопка отмены
+    local cancelBtn = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
+    cancelBtn:SetSize(120, 25)
+    cancelBtn:SetPoint("BOTTOMRIGHT", -50, 10)
+    cancelBtn:SetText("Отмена")
+    cancelBtn:SetScript("OnClick", function()
+        confirmFrame:Hide()
+    end)
+    
+    confirmFrame:Show()
+end
+
+function MuteManager:GetSelectedCandidates()
+    local selectedPlayers = {}
+    local container = self.tabFrames[4].checkboxesContainer
+    
+    if container and container.candidateFrames then
+        for i, candidateFrame in ipairs(container.candidateFrames) do
+            if candidateFrame.checkbox:GetChecked() and self.cleanupCandidates[i] then
+                table.insert(selectedPlayers, self.cleanupCandidates[i])
+            end
+        end
+    end
+    
+    return selectedPlayers
+end
+
+function MuteManager:PerformRemoveSelectedPlayers()
     local parent = self.tabFrames[4]
     local container = parent.checkboxesContainer
     local statusText = parent.statusText
@@ -1374,12 +1468,15 @@ function MuteManager:RemoveSelectedPlayers()
         end
     end
     
+    -- Обновляем список после удаления
     self:DelayedExecute(2, function()
         GuildRoster()
         local days = tonumber(parent.daysEdit:GetText()) or 30
         local maxLevel = tonumber(parent.levelEdit:GetText()) or 80
         local selectedRanks = self:GetSelectedRanks()
-        self:FindInactivePlayers(days, maxLevel, selectedRanks)
+        local excludePublicNote = parent.excludePublicNoteCheckbox:GetChecked()
+        local excludeOfficerNote = parent.excludeOfficerNoteCheckbox:GetChecked()
+        self:FindInactivePlayers(days, maxLevel, selectedRanks, excludePublicNote, excludeOfficerNote)
     end)
     
     local statusMsg = string.format("Удалено: %d, Пропущено: %d", removedCount, skippedCount)
@@ -1389,6 +1486,11 @@ function MuteManager:RemoveSelectedPlayers()
     
     statusText:SetText(statusMsg)
     self:ShowNotification("Удаление завершено")
+end
+
+function MuteManager:RemoveSelectedPlayers()
+    -- Вместо непосредственного удаления показываем подтверждение
+    self:ShowRemoveConfirmation()
 end
 
 function MuteManager:ShowNotification(message)
