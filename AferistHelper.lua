@@ -22,6 +22,8 @@ local searchResults = {}
 local currentPlayerClass = nil
 local mailShownCount = 0
 local MAX_MAIL_SHOW_COUNT = 2
+local copyFrame = nil
+local infoFrame = nil
 
 local function FixElvUIConflict()
     if not IsAddOnLoaded("ElvUI") then return end
@@ -36,77 +38,84 @@ end
 
 
 function ShowCopyWindow(name, config)
-    local copyFrame = CreateFrame("Frame", "AferistHelperCopyFrame", UIParent, "BasicFrameTemplate")
-    copyFrame:SetSize(700, 500)
-    copyFrame:SetPoint("CENTER")
-    copyFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    copyFrame:SetMovable(true)
-    copyFrame:EnableMouse(true)
-    copyFrame:RegisterForDrag("LeftButton")
-    copyFrame:SetScript("OnDragStart", copyFrame.StartMoving)
-    copyFrame:SetScript("OnDragStop", copyFrame.StopMovingOrSizing)
-    
-    copyFrame.title = copyFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    copyFrame.title:SetPoint("TOP", 0, -5)
-    copyFrame.title:SetText("Копирование конфига: " .. name)
-    
-    local instructionText = copyFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    instructionText:SetPoint("TOP", 0, -25)
-    instructionText:SetText("Выделите текст ниже и скопируйте (Ctrl+A затем Ctrl+C):")
-    
-    local scrollFrame = CreateFrame("ScrollFrame", "AferistHelperCopyScrollFrame", copyFrame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", 15, -50)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -30, 40)
-    
-    local editBox = CreateFrame("EditBox", "AferistHelperCopyEditBox", scrollFrame)
-    editBox:SetSize(scrollFrame:GetWidth() - 20, scrollFrame:GetHeight())
-    editBox:SetMultiLine(true)
-    editBox:SetAutoFocus(false)
-    editBox:SetFontObject("GameFontHighlight")
-    editBox:SetText(config.config_string)
-    editBox:SetScript("OnEscapePressed", function() copyFrame:Hide() end)
-    
-    editBox:SetMaxLetters(0)
-    editBox:SetWidth(scrollFrame:GetWidth() - 20)
-    
-    editBox:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    })
-    editBox:SetBackdropColor(0, 0, 0, 1)
-    editBox:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
-    
-    scrollFrame:SetScrollChild(editBox)
-    
-    local selectAllBtn = CreateFrame("Button", nil, copyFrame, "UIPanelButtonTemplate")
-    selectAllBtn:SetSize(120, 25)
-    selectAllBtn:SetPoint("BOTTOMLEFT", 20, 10)
-    selectAllBtn:SetText("Выделить всё")
-    selectAllBtn:SetScript("OnClick", function()
-        editBox:SetFocus()
-        editBox:HighlightText()
-    end)
-    
-    local closeBtn = CreateFrame("Button", nil, copyFrame, "UIPanelButtonTemplate")
-    closeBtn:SetSize(100, 25)
-    closeBtn:SetPoint("BOTTOMRIGHT", -20, 10)
-    closeBtn:SetText("Закрыть")
-    closeBtn:SetScript("OnClick", function() copyFrame:Hide() end)
-    
-    copyFrame:SetScript("OnSizeChanged", function(self, width, height)
-        scrollFrame:SetSize(width - 45, height - 90)
+    if not copyFrame then
+        copyFrame = CreateFrame("Frame", "AferistHelperCopyFrame", UIParent, "BasicFrameTemplate")
+        copyFrame:SetSize(700, 500)
+        copyFrame:SetPoint("CENTER")
+        copyFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+        copyFrame:SetMovable(true)
+        copyFrame:EnableMouse(true)
+        copyFrame:RegisterForDrag("LeftButton")
+        copyFrame:SetScript("OnDragStart", copyFrame.StartMoving)
+        copyFrame:SetScript("OnDragStop", copyFrame.StopMovingOrSizing)
+        
+        copyFrame.TitleText:SetText("Копирование конфига")
+        
+        local instructionText = copyFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        instructionText:SetPoint("TOP", 0, -25)
+        instructionText:SetText("Выделите текст ниже и скопируйте (Ctrl+A затем Ctrl+C):")
+        
+        local scrollFrame = CreateFrame("ScrollFrame", "AferistHelperCopyScrollFrame", copyFrame, "UIPanelScrollFrameTemplate")
+        scrollFrame:SetPoint("TOPLEFT", 20, -50)
+        scrollFrame:SetPoint("BOTTOMRIGHT", -35, 45)
+        
+        local editBox = CreateFrame("EditBox", "AferistHelperCopyEditBox", scrollFrame)
+        editBox:SetSize(scrollFrame:GetWidth() - 20, scrollFrame:GetHeight())
+        editBox:SetMultiLine(true)
+        editBox:SetAutoFocus(false)
+        editBox:SetFontObject("GameFontHighlight")
+        editBox:SetScript("OnEscapePressed", function() 
+            copyFrame:Hide()
+        end)
+        
+        editBox:SetMaxLetters(0)
         editBox:SetWidth(scrollFrame:GetWidth() - 20)
+        
+        editBox:SetBackdrop({
+            bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true, tileSize = 16, edgeSize = 16,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 }
+        })
+        editBox:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
+        editBox:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
+        
+        scrollFrame:SetScrollChild(editBox)
+        
+        local selectAllBtn = CreateFrame("Button", nil, copyFrame, "UIPanelButtonTemplate")
+        selectAllBtn:SetSize(120, 25)
+        selectAllBtn:SetPoint("BOTTOMLEFT", 25, 15)
+        selectAllBtn:SetText("Выделить всё")
+        
+        local closeBtn = CreateFrame("Button", nil, copyFrame, "UIPanelButtonTemplate")
+        closeBtn:SetSize(100, 25)
+        closeBtn:SetPoint("BOTTOMRIGHT", -25, 15)
+        closeBtn:SetText("Закрыть")
+        closeBtn:SetScript("OnClick", function() 
+            copyFrame:Hide()
+        end)
+        
+        copyFrame.editBox = editBox
+        copyFrame.selectAllBtn = selectAllBtn
+    end
+    
+    copyFrame.TitleText:SetText("Копирование конфига: " .. name)
+    copyFrame.editBox:SetText(config.config_string)
+    
+    copyFrame.selectAllBtn:SetScript("OnClick", function()
+        copyFrame.editBox:SetFocus()
+        copyFrame.editBox:HighlightText()
     end)
+    
+    copyFrame:Show()
     
     local timerFrame = CreateFrame("Frame")
     local elapsed = 0
     timerFrame:SetScript("OnUpdate", function(self, delta)
         elapsed = elapsed + delta
         if elapsed >= 0.1 then
-            editBox:SetFocus()
-            editBox:HighlightText()
+            copyFrame.editBox:SetFocus()
+            copyFrame.editBox:HighlightText()
             self:SetScript("OnUpdate", nil)
         end
     end)
@@ -143,7 +152,7 @@ function CreateMainFrame()
 end
 
 function CreateTabs()
-    local tabs = {"ElvUI", "WeakAuras", "Details", "Other"}
+    local tabs = {"ElvUI", "WeakAuras", "Details", "Addons"}
     
     for i, tabName in ipairs(tabs) do
         local tab = CreateFrame("Button", "AferistHelperTab"..i, frame, "UIPanelButtonTemplate")
@@ -202,7 +211,6 @@ function CreateSearchPanel()
     frame.searchBox:SetBackdropColor(0, 0, 0, 0.5)
     frame.searchBox:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
     
-    -- Устанавливаем плейсхолдер
     frame.searchBox:SetText("Поиск...")
     frame.searchBox:SetTextColor(0.5, 0.5, 0.5)
     
@@ -212,7 +220,6 @@ function CreateSearchPanel()
     
     frame.searchBox:SetScript("OnEscapePressed", function(self) 
         self:ClearFocus() 
-        -- При Escape возвращаем плейсхолдер
         if self:GetText() == "" then
             self:SetText("Поиск...")
             self:SetTextColor(0.5, 0.5, 0.5)
@@ -225,7 +232,6 @@ function CreateSearchPanel()
     end)
     
     frame.searchBox:SetScript("OnEditFocusGained", function(self)
-        -- При фокусе очищаем если это плейсхолдер
         if self:GetText() == "Поиск..." then
             self:SetText("")
             self:SetTextColor(1, 1, 1)
@@ -233,7 +239,6 @@ function CreateSearchPanel()
     end)
     
     frame.searchBox:SetScript("OnEditFocusLost", function(self)
-        -- При потере фокуса возвращаем плейсхолдер если пусто
         if self:GetText() == "" then
             self:SetText("Поиск...")
             self:SetTextColor(0.5, 0.5, 0.5)
@@ -409,48 +414,71 @@ function SearchConfigs(searchText)
 end
 
 function ShowConfigInfo(name, config)
-    local infoFrame = CreateFrame("Frame", "AferistHelperInfoFrame", UIParent, "BasicFrameTemplate")
-    infoFrame:SetSize(500, 400)
-    infoFrame:SetPoint("CENTER", -100, 0)
-    infoFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    infoFrame:SetMovable(true)
-    infoFrame:EnableMouse(true)
-    infoFrame:RegisterForDrag("LeftButton")
-    infoFrame:SetScript("OnDragStart", infoFrame.StartMoving)
-    infoFrame:SetScript("OnDragStop", infoFrame.StopMovingOrSizing)
+    if not infoFrame then
+        infoFrame = CreateFrame("Frame", "AferistHelperInfoFrame", UIParent, "BasicFrameTemplate")
+        infoFrame:SetSize(500, 400)
+        infoFrame:SetPoint("CENTER")
+        infoFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+        infoFrame:SetMovable(true)
+        infoFrame:EnableMouse(true)
+        infoFrame:RegisterForDrag("LeftButton")
+        infoFrame:SetScript("OnDragStart", infoFrame.StartMoving)
+        infoFrame:SetScript("OnDragStop", infoFrame.StopMovingOrSizing)
+        
+        infoFrame.TitleText:SetText("Информация о конфиге")
+        
+        local scrollFrame = CreateFrame("ScrollFrame", "AferistHelperInfoScrollFrame", infoFrame, "UIPanelScrollFrameTemplate")
+        scrollFrame:SetPoint("TOPLEFT", 15, -30)
+        scrollFrame:SetPoint("BOTTOMRIGHT", -30, 45)
+        
+        local scrollChild = CreateFrame("Frame", "AferistHelperInfoScrollChild", scrollFrame)
+        scrollFrame:SetScrollChild(scrollChild)
+        scrollChild:SetSize(460, 600)
+        
+        scrollChild:SetBackdrop({
+            bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true, tileSize = 16, edgeSize = 16,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 }
+        })
+        scrollChild:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
+        scrollChild:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
+        
+        infoFrame.scrollChild = scrollChild
+    end
     
-    infoFrame.title = infoFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    infoFrame.title:SetPoint("TOP", 0, -5)
-    infoFrame.title:SetText("Информация о конфиге")
+    infoFrame.TitleText:SetText("Информация о конфиге")
     
-    local scrollFrame = CreateFrame("ScrollFrame", "AferistHelperInfoScrollFrame", infoFrame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", 10, -30)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -30, 40)
-    
-    local scrollChild = CreateFrame("Frame", "AferistHelperInfoScrollChild", scrollFrame)
-    scrollFrame:SetScrollChild(scrollChild)
-    scrollChild:SetSize(460, 600)
+    local scrollChild = infoFrame.scrollChild
+    if scrollChild.elements then
+        for _, element in pairs(scrollChild.elements) do
+            element:Hide()
+        end
+    end
+    scrollChild.elements = {}
     
     local infoStartY = -10
     
     local nameText = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     nameText:SetPoint("TOP", 0, infoStartY)
     nameText:SetText("|cFFFFFF00" .. name .. "|r")
+    table.insert(scrollChild.elements, nameText)
     
     local details = {
         string.format("Автор: |cFF00FF00%s|r", config.author),
         string.format("Обновлен: |cFFFFFFFF%s|r", date("%Y-%m-%d", config.last_updated))
     }
     
-	if config.class and config.class ~= "ALL" then
-		table.insert(details, string.format("Класс: |cFFFFFFFF%s|r", config.class))
-	end
+    if config.class and config.class ~= "ALL" then
+        table.insert(details, string.format("Класс: |cFFFFFFFF%s|r", config.class))
+    end
     
     for i, detail in ipairs(details) do
         local text = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         text:SetPoint("TOPLEFT", 20, infoStartY - 30 - (i-1)*20)
         text:SetText(detail)
         text:SetJustifyH("LEFT")
+        table.insert(scrollChild.elements, text)
     end
     
     local featuresStartY = infoStartY - 30 - (#details * 20)
@@ -459,11 +487,13 @@ function ShowConfigInfo(name, config)
         local featuresText = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         featuresText:SetPoint("TOP", 0, featuresStartY)
         featuresText:SetText("Особенности:")
+        table.insert(scrollChild.elements, featuresText)
         
         for i, feature in ipairs(config.features) do
             local featureText = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
             featureText:SetPoint("TOP", 0, featuresStartY - 20 - (i-1)*18)
             featureText:SetText("• " .. feature)
+            table.insert(scrollChild.elements, featureText)
         end
         
         featuresStartY = featuresStartY - 20 - (#config.features * 18)
@@ -472,6 +502,7 @@ function ShowConfigInfo(name, config)
     local descText = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     descText:SetPoint("TOP", 0, featuresStartY - 10)
     descText:SetText("Описание:")
+    table.insert(scrollChild.elements, descText)
     
     local desc = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     desc:SetPoint("TOP", 0, featuresStartY - 30)
@@ -479,13 +510,9 @@ function ShowConfigInfo(name, config)
     desc:SetWidth(440)
     desc:SetJustifyH("LEFT")
     desc:SetJustifyV("TOP")
+    table.insert(scrollChild.elements, desc)
     
-    local closeBtn = CreateFrame("Button", nil, infoFrame, "UIPanelButtonTemplate")
-    closeBtn:SetSize(100, 25)
-    closeBtn:SetPoint("BOTTOM", 0, 10)
-    closeBtn:SetText("Закрыть")
-    closeBtn:SetScript("OnClick", function() infoFrame:Hide() end)
-    
+    infoFrame:Show()
 end
 
 function CreateClassRecommendationsFrame()
@@ -827,11 +854,11 @@ loader:SetScript("OnEvent", function(self, event, addonName)
                     elvui = {},
                     weakauras = {},
                     details = {},
-                    other = {
-                        ["DBM настройки"] = {
+                    addons = {
+                        ["Пак аддонов"] = {
                             author = "SegaZBS",
-                            description = "Оптимизированные настройки DeadlyBossMods для всех рейдов",
-                            config_string = "В разработке",
+                            description = "Все аддоны, которыми пользуется стример",
+                            config_string = "https://t.me/SEGAZBS/2747",
                             last_updated = time(),
                             class = "ALL",
                             features = {"Таймеры", "Предупреждения", "Спец-предупреждения"}
@@ -853,5 +880,4 @@ loader:SetScript("OnEvent", function(self, event, addonName)
         self:UnregisterEvent("ADDON_LOADED")
     end
 end)
-
 
