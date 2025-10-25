@@ -128,24 +128,24 @@ function ToggleMinimapMenu()
         })
         
         table.insert(menuItems, {
-            text = "MuteManager",
+            text = "Поиск участников",
             func = function() 
                 MuteManager:ToggleWindow()
             end,
             notCheckable = true
         })
         
-        table.insert(menuItems, {
+        --[[table.insert(menuItems, {
             text = "Активные муты",
             func = function() 
                 MuteManager:ShowTab(2)
                 MuteManager:ToggleWindow()
             end,
             notCheckable = true
-        })
+        })]]--
         
         table.insert(menuItems, {
-            text = "Настройки мутов",
+            text = "Настройки",
             func = function() 
                 MuteManager:ShowTab(3)
                 MuteManager:ToggleWindow()
@@ -887,15 +887,17 @@ function MuteManager:CreateCleanupTab(parent)
     findBtn:SetPoint("TOPLEFT", 10, yOffset)
     findBtn:SetText("Найти неактивных")
     findBtn:SetScript("OnClick", function()
-        local days = tonumber(daysEdit:GetText()) or 30
-        local maxLevel = tonumber(levelEdit:GetText()) or 80
-        local selectedRanks = self:GetSelectedRanks()
-        local excludePublicNote = excludePublicNoteCheckbox:GetChecked()
-        local excludeOfficerNote = excludeOfficerNoteCheckbox:GetChecked()
-        
-        self.db.settings.cleanupDays = days
-        self:FindInactivePlayers(days, maxLevel, selectedRanks, excludePublicNote, excludeOfficerNote)
-    end)
+		self:SaveCleanupFilters()
+		
+		local days = tonumber(daysEdit:GetText()) or 30
+		local maxLevel = tonumber(levelEdit:GetText()) or 80
+		local selectedRanks = self:GetSelectedRanks()
+		local excludePublicNote = excludePublicNoteCheckbox:GetChecked()
+		local excludeOfficerNote = excludeOfficerNoteCheckbox:GetChecked()
+		
+		self.db.settings.cleanupDays = days
+		self:FindInactivePlayers(days, maxLevel, selectedRanks, excludePublicNote, excludeOfficerNote)
+	end)
     
     yOffset = yOffset - 40
     
@@ -960,16 +962,25 @@ function MuteManager:CreateCleanupTab(parent)
     parent.removeBtn = removeBtn
     
     self:CreateRankCheckboxes(ranksContainer)
+    
+    self:LoadCleanupFilters()
 end
 
 function MuteManager:CreateRankCheckboxes(container)
     if container.checkboxes then
+        local savedStates = {}
+        for rankIndex, checkbox in pairs(container.checkboxes) do
+            savedStates[rankIndex] = checkbox:GetChecked()
+        end
+        
         for _, checkbox in pairs(container.checkboxes) do
             checkbox:Hide()
             if checkbox.label then
                 checkbox.label:Hide()
             end
         end
+    else
+        savedStates = {}
     end
     
     local ranks = {}
@@ -994,7 +1005,13 @@ function MuteManager:CreateRankCheckboxes(container)
         
         local checkbox = CreateFrame("CheckButton", nil, container, "UICheckButtonTemplate")
         checkbox:SetPoint("TOPLEFT", xOffset, yOffset)
-        checkbox:SetChecked(true)
+        
+        local isChecked = savedStates[rankData.index]
+        if isChecked == nil then
+            isChecked = true
+        end
+        checkbox:SetChecked(isChecked)
+        
         checkbox.rankIndex = rankData.index
         
         local label = container:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -1012,6 +1029,51 @@ function MuteManager:CreateRankCheckboxes(container)
     container:SetHeight(containerHeight)
     container:SetWidth(numColumns * columnWidth)
 end
+
+function MuteManager:SaveCleanupFilters()
+    if not self.tabFrames or not self.tabFrames[4] then return end
+    
+    local parent = self.tabFrames[4]
+    
+    self.db.cleanupFilters = self.db.cleanupFilters or {}
+    
+    self.db.cleanupFilters.days = parent.daysEdit:GetText()
+    self.db.cleanupFilters.level = parent.levelEdit:GetText()
+    
+    self.db.cleanupFilters.excludePublicNote = parent.excludePublicNoteCheckbox:GetChecked()
+    self.db.cleanupFilters.excludeOfficerNote = parent.excludeOfficerNoteCheckbox:GetChecked()
+    
+    self.db.cleanupFilters.selectedRanks = {}
+    local container = parent.ranksContainer
+    if container and container.checkboxes then
+        for rankIndex, checkbox in pairs(container.checkboxes) do
+            self.db.cleanupFilters.selectedRanks[rankIndex] = checkbox:GetChecked()
+        end
+    end
+end
+
+function MuteManager:LoadCleanupFilters()
+    if not self.tabFrames or not self.tabFrames[4] then return end
+    if not self.db.cleanupFilters then return end
+    
+    local parent = self.tabFrames[4]
+    
+    if self.db.cleanupFilters.days then
+        parent.daysEdit:SetText(self.db.cleanupFilters.days)
+    end
+    if self.db.cleanupFilters.level then
+        parent.levelEdit:SetText(self.db.cleanupFilters.level)
+    end
+    
+    if self.db.cleanupFilters.excludePublicNote ~= nil then
+        parent.excludePublicNoteCheckbox:SetChecked(self.db.cleanupFilters.excludePublicNote)
+    end
+    if self.db.cleanupFilters.excludeOfficerNote ~= nil then
+        parent.excludeOfficerNoteCheckbox:SetChecked(self.db.cleanupFilters.excludeOfficerNote)
+    end
+end
+
+
 
 function MuteManager:GetSelectedRanks()
     local selectedRanks = {}
@@ -1051,9 +1113,9 @@ function MuteManager:ShowTab(tabIndex)
                 if self.tabFrames[4].candidatesFrame then
                     self.tabFrames[4].candidatesFrame:Hide()
                 end
-                if self.tabFrames[4].ranksContainer then
+                --[[if self.tabFrames[4].ranksContainer then
                     self:CreateRankCheckboxes(self.tabFrames[4].ranksContainer)
-                end
+                end]]--
             end
         else
             frame:Hide()
@@ -1247,6 +1309,7 @@ function MuteManager:UpdateCleanupList()
         statusText:SetText("Неактивные игроки не найдены")
         parent.removeBtn:Disable()
         candidatesFrame:Hide()
+        
         return
     end
     
@@ -1302,7 +1365,7 @@ function MuteManager:UpdateCleanupList()
             publicNote = "нет" 
             publicNoteText:SetTextColor(0.7, 0.7, 0.7)
         else
-            publicNoteText:SetTextColor(1, 1, 1)
+            publicNoteText:SetTextColor(0, 1, 0)
         end
         publicNoteText:SetText("Публичная: " .. publicNote)
         
@@ -1316,7 +1379,7 @@ function MuteManager:UpdateCleanupList()
             officerNote = "нет" 
             officerNoteText:SetTextColor(0.7, 0.7, 0.7)
         else
-            officerNoteText:SetTextColor(1, 1, 1)
+            officerNoteText:SetTextColor(0, 1, 0)
         end
         officerNoteText:SetText("Офицерская: " .. officerNote)
         
@@ -1349,7 +1412,6 @@ function MuteManager:ShowRemoveConfirmation()
         return
     end
     
-    -- Создаем фрейм подтверждения
     local confirmFrame = CreateFrame("Frame", "MuteManagerConfirmFrame", UIParent, "BasicFrameTemplate")
     confirmFrame:SetSize(450, 300)
     confirmFrame:SetPoint("CENTER")
@@ -1364,20 +1426,17 @@ function MuteManager:ShowRemoveConfirmation()
     confirmFrame.title:SetPoint("TOP", 0, -5)
     confirmFrame.title:SetText("Подтверждение удаления")
     
-    -- Текст предупреждения
     local warningText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     warningText:SetPoint("TOP", 0, -25)
     warningText:SetText("Вы действительно хотите исключить следующих игроков?")
     warningText:SetTextColor(1, 1, 0)
     
-    -- Список игроков для удаления
     local playersText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     playersText:SetPoint("TOPLEFT", 15, -50)
     playersText:SetSize(420, 180)
     playersText:SetJustifyH("LEFT")
     playersText:SetJustifyV("TOP")
     
-    -- Формируем список игроков
     local playerList = {}
     for i, candidate in ipairs(selectedPlayers) do
         table.insert(playerList, string.format("%s(%d)%dд.", candidate.name, candidate.level, candidate.daysOffline))
@@ -1385,20 +1444,17 @@ function MuteManager:ShowRemoveConfirmation()
     
     local displayText = table.concat(playerList, ", ")
     
-    -- Если текст слишком длинный, обрезаем и добавляем "..."
     if #displayText > 150 then
         displayText = displayText:sub(1, 150) .. "..."
     end
     
     playersText:SetText(displayText)
     
-    -- Статистика
     local statsText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     statsText:SetPoint("TOP", 0, -180)
     statsText:SetText(string.format("Всего игроков: %d", #selectedPlayers))
     statsText:SetTextColor(1, 0.8, 0)
     
-    -- Кнопка подтверждения
     local confirmBtn = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
     confirmBtn:SetSize(120, 25)
     confirmBtn:SetPoint("BOTTOMLEFT", 50, 10)
@@ -1408,7 +1464,6 @@ function MuteManager:ShowRemoveConfirmation()
 		confirmFrame:Hide()
 	end)
     
-    -- Кнопка отмены
     local cancelBtn = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
     cancelBtn:SetSize(120, 25)
     cancelBtn:SetPoint("BOTTOMRIGHT", -50, 10)
@@ -1468,7 +1523,6 @@ function MuteManager:PerformRemoveSelectedPlayers()
         end
     end
     
-    -- Обновляем список после удаления
     self:DelayedExecute(2, function()
         GuildRoster()
         local days = tonumber(parent.daysEdit:GetText()) or 30
@@ -1489,7 +1543,6 @@ function MuteManager:PerformRemoveSelectedPlayers()
 end
 
 function MuteManager:RemoveSelectedPlayers()
-    -- Вместо непосредственного удаления показываем подтверждение
     self:ShowRemoveConfirmation()
 end
 
