@@ -130,7 +130,7 @@ end
 
 function CreateMainFrame()
     frame = CreateFrame("Frame", "AferistHelperFrame", UIParent, "BasicFrameTemplate")
-    frame:SetSize(650, 500)
+    frame:SetSize(750, 500)
     frame:SetPoint("CENTER")
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -185,13 +185,75 @@ function CreateContentArea()
     
     frame.scrollChild = CreateFrame("Frame", "AferistHelperScrollChild", frame.scrollFrame)
     frame.scrollFrame:SetScrollChild(frame.scrollChild)
-    frame.scrollChild:SetSize(580, 350)
+    frame.scrollChild:SetSize(550, 350)
     
-    frame.classBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    frame.classBtn:SetSize(160, 25)
-    frame.classBtn:SetPoint("TOPRIGHT", -30, -35)
-    frame.classBtn:SetText("Для моего класса")
-    frame.classBtn:SetScript("OnClick", ShowClassRecommendations)
+    frame.classFilters = CreateFrame("Frame", nil, frame)
+    frame.classFilters:SetPoint("TOPRIGHT", -10, -35)
+    frame.classFilters:SetSize(150, 150)
+    
+    local classFilterTitle = frame.classFilters:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    classFilterTitle:SetPoint("TOP", 0, 0)
+    classFilterTitle:SetText("Фильтр по классам:")
+    classFilterTitle:SetTextColor(1, 1, 0)
+    
+    local classes = {
+        "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST",
+        "DEATHKNIGHT", "SHAMAN", "MAGE", "WARLOCK", "DRUID"
+    }
+    
+    local classNames = {
+        WARRIOR = "Воин",
+        PALADIN = "Паладин", 
+        HUNTER = "Охотник",
+        ROGUE = "Разбойник",
+        PRIEST = "Жрец",
+        DEATHKNIGHT = "Рыцарь смерти",
+        SHAMAN = "Шаман",
+        MAGE = "Маг",
+        WARLOCK = "Чернокнижник",
+        DRUID = "Друид"
+    }
+    
+    frame.classCheckboxes = {}
+    
+    for i, class in ipairs(classes) do
+        local checkbox = CreateFrame("CheckButton", nil, frame.classFilters, "UICheckButtonTemplate")
+        checkbox:SetPoint("TOPLEFT", 0, -20 - ((i-1) * 20))
+        checkbox:SetChecked(true)
+        checkbox.class = class
+        
+        local label = frame.classFilters:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        label:SetPoint("LEFT", checkbox, "RIGHT", 5, 0)
+        label:SetText(classNames[class])
+        
+        checkbox:SetScript("OnClick", function()
+            RefreshConfigList()
+        end)
+        
+        frame.classCheckboxes[class] = checkbox
+    end
+    
+    local allClassesBtn = CreateFrame("Button", nil, frame.classFilters, "UIPanelButtonTemplate")
+    allClassesBtn:SetSize(120, 18)
+    allClassesBtn:SetPoint("BOTTOMLEFT", 0, -125)
+    allClassesBtn:SetText("Все классы")
+    allClassesBtn:SetScript("OnClick", function()
+        for class, checkbox in pairs(frame.classCheckboxes) do
+            checkbox:SetChecked(true)
+        end
+        RefreshConfigList()
+    end)
+    
+    local myClassBtn = CreateFrame("Button", nil, frame.classFilters, "UIPanelButtonTemplate")
+    myClassBtn:SetSize(120, 18)
+    myClassBtn:SetPoint("BOTTOMLEFT", 0, -105)
+    myClassBtn:SetText("Только мой класс")
+    myClassBtn:SetScript("OnClick", function()
+        for class, checkbox in pairs(frame.classCheckboxes) do
+            checkbox:SetChecked(class == currentPlayerClass)
+        end
+        RefreshConfigList()
+    end)
 end
 
 function CreateSearchPanel()
@@ -300,13 +362,29 @@ function RefreshConfigList()
     
     frame.scrollChild.buttons = {}
     
+    local selectedClasses = {}
+    for class, checkbox in pairs(frame.classCheckboxes) do
+        if checkbox:GetChecked() then
+            selectedClasses[class] = true
+            selectedClasses["ALL"] = true
+        end
+    end
+    
     local configsToShow = {}
     if #searchResults > 0 then
-        configsToShow = searchResults
+        for _, configData in ipairs(searchResults) do
+            local configClass = configData.config.class or "ALL"
+            if selectedClasses[configClass] then
+                table.insert(configsToShow, configData)
+            end
+        end
     else
         local categoryConfigs = AferistHelperDB.configs[selectedCategory] or {}
         for name, config in pairs(categoryConfigs) do
-            table.insert(configsToShow, {name = name, config = config})
+            local configClass = config.class or "ALL"
+            if selectedClasses[configClass] then
+                table.insert(configsToShow, {name = name, config = config})
+            end
         end
     end
     
@@ -323,13 +401,17 @@ function RefreshConfigList()
     
     if #configsToShow > 0 then
         frame.scrollChild:SetHeight(#configsToShow * 60)
+        
+        if frame.scrollChild.noConfigsText then
+            frame.scrollChild.noConfigsText:Hide()
+        end
     else
         frame.scrollChild:SetHeight(100)
         
         if not frame.scrollChild.noConfigsText then
             frame.scrollChild.noConfigsText = frame.scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
             frame.scrollChild.noConfigsText:SetPoint("CENTER")
-            frame.scrollChild.noConfigsText:SetText("Нет конфигов в этой категории")
+            frame.scrollChild.noConfigsText:SetText("Нет конфигов по выбранным фильтрам")
         end
         frame.scrollChild.noConfigsText:Show()
     end
@@ -337,7 +419,7 @@ end
 
 function CreateConfigButton(index)
     local button = CreateFrame("Frame", nil, frame.scrollChild)
-    button:SetSize(560, 55)
+    button:SetSize(530, 55)
     button:SetPoint("TOPLEFT", 0, -(index-1) * 60)
     
     button:SetBackdrop({
@@ -352,7 +434,7 @@ function CreateConfigButton(index)
     button.name = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     button.name:SetPoint("TOPLEFT", 10, -8)
     button.name:SetJustifyH("LEFT")
-    button.name:SetWidth(300)
+    button.name:SetWidth(280)
     
     button.details = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     button.details:SetPoint("TOPLEFT", 10, -25)
@@ -373,7 +455,9 @@ end
 
 function ConfigureConfigButton(button, name, config, index)
     button.name:SetText("|cFFFFFFFF" .. name .. "|r")
-    button.details:SetText(string.format("Автор: |cFF00FF00%s|r", config.author))
+    
+    local classText = config.class and config.class ~= "ALL" and " | Класс: " .. config.class or ""
+    button.details:SetText(string.format("Автор: |cFF00FF00%s|r%s", config.author, classText))
     
     button.copyBtn:SetScript("OnClick", function()
         ShowCopyWindow(name, config)
@@ -813,15 +897,22 @@ SlashCmdList["AFERISTHELPER"] = function(msg)
             mailDonationShown = false,
             mailShownCount = 0
         }
-        LoadDefaulConfigs()
         RefreshConfigList()
         print("|cFF00FF00Aferist Helper:|r База конфигов полностью сброшена и перезагружена")
     elseif msg == "class" or msg == "recommend" then
-        ShowClassRecommendations()
+        if frame and frame.classCheckboxes then
+            for class, checkbox in pairs(frame.classCheckboxes) do
+                checkbox:SetChecked(class == currentPlayerClass)
+            end
+            RefreshConfigList()
+            if not frame:IsShown() then
+                frame:Show()
+            end
+        end
     elseif msg == "help" then
         print("|cFF00FF00Aferist Helper команды:|r")
         print("|cFFFFFF00/ah|r - открыть главное окно")
-        print("|cFFFFFF00/ah class|r - рекомендации для вашего класса")
+        print("|cFFFFFF00/ah class|r - показать конфиги для вашего класса")
         print("|cFFFFFF00/ah reset|r - сбросить базу конфигов")
         print("|cFFFFFF00/ah help|r - показать эту справку")
     else
@@ -872,7 +963,7 @@ loader:SetScript("OnEvent", function(self, event, addonName)
         mailShownCount = AferistHelperDB.mailShownCount or 0
         
         CreateMainFrame()
-        CreateClassRecommendationsFrame()
+        --CreateClassRecommendationsFrame()
         
         print("|cFF00FF00Aferist Helper|r загружен! Используйте |cFFFFFF00/ah|r для открытия.")
         print("|cFFFFFF00Рекомендации для |r" .. currentPlayerClass .. "|cFFFFFF00: /ah class|r")
