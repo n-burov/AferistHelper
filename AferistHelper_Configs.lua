@@ -1,4 +1,11 @@
 function LoadDefaultConfigs()
+	
+	local savedFavorites = AferistHelperDB.favorites or {}
+    local savedMetadata = AferistHelperDB._metadata or {}
+    local savedClass = AferistHelperDB.class
+    local savedMailShown = AferistHelperDB.mailDonationShown
+    local savedMailCount = AferistHelperDB.mailShownCount
+	
     AferistHelperDB.configs = {
         elvui = {
 			["ElvUI для Энх. Шамана"] = {
@@ -162,5 +169,10 @@ function LoadDefaultConfigs()
         }
     }
     
-    AferistHelperDB._metadata.last_updated = time()
+    AferistHelperDB.favorites = savedFavorites
+    AferistHelperDB._metadata = savedMetadata
+    AferistHelperDB._metadata.last_updated = time() -- Обновляем время последнего обновления
+    AferistHelperDB.class = savedClass
+    AferistHelperDB.mailDonationShown = savedMailShown
+    AferistHelperDB.mailShownCount = savedMailCount
 end
