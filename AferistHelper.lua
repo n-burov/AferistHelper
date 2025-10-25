@@ -2,7 +2,7 @@ local ADDON_NAME, addon = ...
 
 AferistHelperDB = AferistHelperDB or {
     _metadata = {
-        version = "1.0.0",
+        version = "1.0.52",
         last_updated = 0
     },
     configs = {},
@@ -937,15 +937,14 @@ loader:SetScript("OnEvent", function(self, event, addonName)
         currentPlayerClass = select(2, UnitClass("player"))
         AferistHelperDB.class = currentPlayerClass
         
-        if not AferistHelperDB.configs or not next(AferistHelperDB.configs) then
-            if type(LoadDefaultConfigs) == "function" then
-                LoadDefaultConfigs()
-            else
-                AferistHelperDB.configs = {
-                    elvui = {},
-                    weakauras = {},
-                    details = {},
-                    addons = {
+        if type(LoadDefaultConfigs) == "function" then
+            LoadDefaultConfigs()
+        else
+            AferistHelperDB.configs = {
+                elvui = {},
+                weakauras = {},
+                details = {},
+                addons = {
                         ["Пак аддонов"] = {
                             author = "SegaZBS",
                             description = "Все аддоны, которыми пользуется стример",
@@ -955,15 +954,14 @@ loader:SetScript("OnEvent", function(self, event, addonName)
                             features = {"Таймеры", "Предупреждения", "Спец-предупреждения"}
                         }
                     }
-                }
-                AferistHelperDB._metadata.last_updated = time()
-            end
+            }
+            AferistHelperDB._metadata.last_updated = time()
         end
+		
         
         mailShownCount = AferistHelperDB.mailShownCount or 0
         
         CreateMainFrame()
-        --CreateClassRecommendationsFrame()
         
         print("|cFF00FF00Aferist Helper|r загружен! Используйте |cFFFFFF00/ah|r для открытия.")
         print("|cFFFFFF00Рекомендации для |r" .. currentPlayerClass .. "|cFFFFFF00: /ah class|r")
