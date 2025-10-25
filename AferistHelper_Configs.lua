@@ -1,6 +1,14 @@
 function LoadDefaultConfigs()
     AferistHelperDB.configs = {
         elvui = {
+			["ElvUI для Энх. Шамана"] = {
+                author = "SegaZBS",
+                description = "Частичная замена интерфейса. Слабее влияет на FPS. (Как на стримах и последних пидосах)",
+                config_string = "!E1!nRvZUnoYr4xL5YEkYdefP(Z5KKS8yJy9dePZGnlgnBlPwsChk2mnBzpEpSiabipa56EkVbdqqqwGCiVcEEJsvD38NMIsIEYobbgqwQz3vv9x9txv1CU1CV5URicYccpg)Eevm8JruUpnCjfhGgsweqNVyU7w)v0EIrKpEh9bAamIaEQXCf0pkUMX3rGNm4(zthoBWSHJYtJh9xj2oFSDR6ZDxZcH5bCJtJJFK8ujCqoNj7fb(H05UtU37UBhpCUldzPGi8zHZDVzYSB)dtg717oGau)nBfZhB5Gc3wwiJBUhoKNLYbyoCA0Enl8Q86Ylahxk1It)u4WQDhKLKFeWsb9LWVQGef5cx4VMSuGSzhBFmL9aLdcJaF4Y9CoqqV9cGYKayrZD3qdPC47W8dyB8d3bIezJeofB5uIWaIbI4hkOC((irVWq2E02WDwVBVcMolAkjuPzrD9qoNXVMt2jjgby6mAeXNp3D6D9(2HZab0p0FhjsX7LY951hanjpXdm)M7cWWBbzyjluAqVKeqdxrK2brSyFfu5nz6DdV2tULdiXX3qccmNr)jEEtgLmPhOB9xgqVJsEGAop9mG5e7)JueLBG)GT4hOlf(pqLBVEWw7gydxUj4cMqW2LImKaXu2JuEFLqhdQ39X4pChg8W93(tFF)as4hkHqOCsc2txYcu2985JR)6gnbvi(fq97Ua)sxPe(irSCRu6UrBR4uVoQJe0DsKBdN9Oy7v(CCJu0(sTzTHfehrw6hUbnvWacHBjGgF10hIgPStI1rk0pqA2P0ORzBgeqj5Dr1MH0)4E)ODGHyIVGRcBBvWpW7MBh87sDgkdqYzaTypaZHVHtwSGk5PFymOtgLnJs1(Upnz96ykGpnQlPybFge1TSgd440aIGoJIZTVYap1pc(9YTKIBNgaCtwCDPE2c)Du4P7IscO(n3C53aXsxtuMrrO5YautpGfcsJaG2(hlmHCYVfddmtPQTTBQhTpz5hwXzrAlzPyEJFmi3pHSjgCi5W2cL4yKbzKcOs3MP7attA5Su2vAo2S0i(5MhGVw11UJY91iq)dkJ4biWTqTZ9ilIhZsLzyu6ogoRBL(7yijs01giSKfW6sxuFPkZpEpjykNTuARJ6ZaqGWtd9JrtrxiY1Qe7r4rS9cxqX6UkkEajgcWHwcWQKl3JW3qfxn6nQGzy4LAsN1PemCAn83x0OBD4d0leF01VhmxEIYrIbh(osArPT7mwREiCL1SCsx9mI)k9I0bZkzvYHDQ50eCCUJUwGqPbNo16AyvRHnWV(7b7)mwn723CJxXDNAWlSA3Sw98sOv9QkJTaVl3(S44(s30tbf1RzHgE3XycjEFcwKmwZgDbe02a9GuDQQW1gDxYR1GZud30VGA7KGz32iYmYFjNvuDFiIMFCC32oVC3OzLf7wws3nDkAzYBz2NGXPJKnEmwGWp6fiIx0OttWwPBIuQChuF(siJJfqghBjzaH99trhUt4syxVEnhR8yJtLT3A3kvL2logc4v1f2XrTWE9FFJtBLIIwFAa7r9rmqGAbbcmZRMZKdGRoGJ7VxL7HlLCkzmzmNe1iiFovYYSDnhKnEWboJiHWj28cEvNsiB0Un8b672tL9QHr2PwPnSU6acjpF4GatNZNay4S0m0RmpriTUDkKktN78XBa1GvTonsnl9WuKQMGErZ6Dqz1LTesdWJroPDwYynS6u7Ioa2mXilYQThBBPvi9hp07e(7xyBHZecTaPQSw0RFvmw60QBT2oMXcR4rxT6ygE4SllDv9Grj3qHJ)ROAUrRUAfTwoRc3Ga0TGv8200IRgVSsS)XZUErczQNJ0EQ4HjLhsbZEa2nOY6CUxa1TZWC45INQ8Pvo1AAd279cG8kFbyHJdArHz6DfDrUSgopdB0aI83XgpGugQSs8dJciWkwKNxL1aI0S)kVjduOaRT6IRsltUSzIutv8Izo7BLAzd(aZzbzJmxq4)jPh7G5Zc5rkombzis5ozxoo8rpa1RY4qDkpfxOYOmIDyk(aBvsdMQIb1ZeCJHpKeXmU42KAjwKJBPuaeH9H(I1YSCnRLPP6rsrwG1NwOPacPtF(pv4pQmKKIdf9bQ37JwbLBeNK5nxMePSq(9qrj7WA8L845)(N)tF(p)8)g(7t4VjavxUfFShdkvvrx3pMu7MTTsF((16YP(oO829rVlx5DLBU8daB9x)0nZDhmCSh2tIYlXkRPoXjaICdKTdnzVACzP6VtUrzbuSiMdlgEbeyXanRgQ5irn(kLNyI2Qy9XryNgm4zQpHT0I7lb1ZO1zG8oNgXLU5hdWtvT1)1hYZmqZbFKWLBz8PmFuG1hvRy9eWNHJT3zCdN8guDvimxa6drUYm7feTLK2WKeTkzphBdRPQwdWa4E9SEJgAU9ou7xyhVCpFBKCV6hUMP6WuHqkHAxztn5TPthnaFjiG9XJ5b1HWzpoFSJHHxz6OlHPUe2yxeYuT)6Dz21f0kMC3QLHaxq5idGDgpcbokA1x9yufdQvIghvnNu5FwMifQxsya3LQolySgjPIKPTv06o1qR)9xFT7bQ1Mz6VM5SXXeipPrE9xdtF9(GGjPiX)7S6lg96NF(V(8pF84w5dPysYa8uZ8rU(QCwXl3N4l3VUapWP)UcwnQ(JMTKfMgF6mN6AgI4qnh606RdZQ2VYgPkKx20lWnlIk(1X(NlBIco(x3t3WuU()YJ3W8OjVeSerFSac85NlJIQkENkinkJYMYCOYtz7VO8Rd5qyuYpLLjeObY6h7MPCBiVjKU67gb)Yc9xe6vPe4fpjVtLmms2GAzd9b7RbPDRoDeJlFPzJUowwTB50UEZoD0mZUUv3w1B3XX2YUTDcJTB3OPtx9JMRJ5Fi8IxwRiXG1T3ex30UYlhcBZlweL2lh7QdwHzuPJN27LRaQMggHl9SD7Jf04gaRdCMXoiUkgVpLvRaLH7vyyB)aFHuOa6xoTZnQ7tXY2MK0hAdwQ4YZ)nWZ7F85)YZ)YZF65)f85)85pj)1VKkudy7wqe)03l5Hk9yWlnGIoFHRk)(1K9pygrG3sLhyHLvt3H2lbAPlnIhEpmfUcg9Dk1xETDQR3OFXBtrYcI8IZ0XGG)zNzolf1OczsrsoYSDtZ7zcwC6LxOVhlDKuz(oROXGtbEnntchavdVI9yioZD6UnJSD164p4hQImcd1ahlISrHjUJ69gyZ)DXBzp(Ug)wPSNxwkWY8IJICwf2zMR2y2LJ7anA(vcDo0GyhbWfz199Lbuu9gVa7niKDQ4K10IsGHP5pIkpvMs5Z0Pozqxl9cDo9YWtsmwN(Oa8u7OazyAVC1FpC8WrF77hpDGuXNfUU88Yffs84ib2HFdNlelsos5GRaxEUQQ3E3gcN4teSdV1DCEuiSb9qY4L7o5Zo6USyGj52ejBi0C3XjWW88DKOSu0eOdneU4yuwMN3XE45XrZZ(ogDsEFmssd66z3oC8v391qJvjb68a(jHLWCnd6fdz53(6x6dVZkovbGQ6oVIa55z4xkgjs8xZ2(vz)vr5(mizvrPtPJpPd153iNc3ePVjqvevQ6(PIO3P22)xgQ40kMYt)7Oj)kuP3wEo5h7e3deXSgfVctMq)UwLV5VLPco7QWnBssjEMnf(QDB6jgBCiwwaC8fxctibMKhByiDNSlkQMx4X0VYfKDKnup9r54BqwpSMTpmnyF8aUVOhMPM64f40PW14R5vUc4uy1iinOyb(kUj5N8KP(54Tk5xtgKNEqHPLlplnLG1iKbRkPJrEm1fOzSieVMF5LrC2A)a6LxogmZanP4vF0(vx8k7xB)6MKFZ)5p",
+                last_updated = time(),
+                class = "SHAMAN",
+                features = {"Фреймы", "Рейдовые фреймы", "Плейты"}
+            },
             ["ElvUI для Прот. паладина - Полный интерфейс"] = {
                 author = "SegaZBS",
                 description = "Полная замена интерфейса, может влиять на FPS",
@@ -134,15 +142,15 @@ function LoadDefaultConfigs()
                 features = {"Урон", "Исцеление", "Рассеивания"}
             }
         },
-        other = {
-            ["DBM настройки"] = {
-                author = "SegaZBS",
-                description = "Оптимизированные настройки DeadlyBossMods для всех рейдов",
-                config_string = "В разработке",
-                last_updated = time(),
-                class = "ALL",
-                features = {"Таймеры", "Предупреждения", "Спец-предупреждения"}
-            }
+        addons = {
+            ["Пак аддонов"] = {
+				author = "SegaZBS",
+				description = "Все аддоны, которыми пользуется стример",
+				config_string = "https://t.me/SEGAZBS/2747",
+				last_updated = time(),
+				class = "ALL",
+				features = {"Таймеры", "Предупреждения", "Спец-предупреждения"}
+			}
         }
     }
     
