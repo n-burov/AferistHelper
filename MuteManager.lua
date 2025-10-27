@@ -425,6 +425,11 @@ function MuteManager:CreateMainTab(parent)
     unmuteBtn:SetPoint("TOPLEFT", 150, yOffset)
     unmuteBtn:SetText("Размутить")
     
+    local kickBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    kickBtn:SetSize(120, 25)
+    kickBtn:SetPoint("TOPLEFT", 280, yOffset)
+    kickBtn:SetText("Исключить")
+    
     parent.nameEdit = nameEdit
     parent.searchBtn = searchBtn
     parent.infoText = infoText
@@ -438,6 +443,7 @@ function MuteManager:CreateMainTab(parent)
     parent.reasonEdit = reasonEdit
     parent.muteBtn = muteBtn
     parent.unmuteBtn = unmuteBtn
+    parent.kickBtn = kickBtn
     
     searchBtn:SetScript("OnClick", function()
         self:SearchPlayer(nameEdit:GetText())
@@ -470,6 +476,10 @@ function MuteManager:CreateMainTab(parent)
     
     unmuteBtn:SetScript("OnClick", function()
         self:UnmuteFromUI(nameEdit:GetText())
+    end)
+	
+	kickBtn:SetScript("OnClick", function()
+        self:KickFromUI(nameEdit:GetText())
     end)
     
     publicNoteEdit:SetScript("OnEscapePressed", function(self)
@@ -662,6 +672,119 @@ function MuteManager:UnmuteFromUI(playerName)
         self:DelayedExecute(2, function()
             self:SearchPlayer(playerName)
         end)
+    end
+end
+
+function MuteManager:KickFromUI(playerName)
+    if not playerName or playerName == "" then
+        self:ShowNotification("Сначала найдите игрока")
+        return
+    end
+    
+    local playerInfo = self:GetPlayerInfo(playerName)
+    if not playerInfo then
+        self:ShowNotification("Игрок не найден в гильдии")
+        return
+    end
+    
+
+    self:ShowKickConfirmation(playerName, playerInfo)
+end
+
+function MuteManager:ShowKickConfirmation(playerName, playerInfo)
+    local confirmFrame = CreateFrame("Frame", "MuteManagerKickConfirmFrame", UIParent, "BasicFrameTemplate")
+    confirmFrame:SetSize(400, 200)
+    confirmFrame:SetPoint("CENTER")
+    confirmFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    confirmFrame:SetMovable(true)
+    confirmFrame:EnableMouse(true)
+    confirmFrame:RegisterForDrag("LeftButton")
+    confirmFrame:SetScript("OnDragStart", confirmFrame.StartMoving)
+    confirmFrame:SetScript("OnDragStop", confirmFrame.StopMovingOrSizing)
+    
+    confirmFrame.title = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    confirmFrame.title:SetPoint("TOP", 0, -5)
+    confirmFrame.title:SetText("Подтверждение исключения")
+    
+    local warningText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    warningText:SetPoint("TOP", 0, -25)
+    warningText:SetText("Вы действительно хотите исключить игрока?")
+    warningText:SetTextColor(1, 1, 0)
+    
+    local playerText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    playerText:SetPoint("TOP", 0, -50)
+    playerText:SetText(string.format("|cFFFF0000%s|r - %s (%d уровень)", 
+        playerName, 
+        playerInfo.rankName, 
+        playerInfo.level or 0))
+    
+    local detailsText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    detailsText:SetPoint("TOP", 0, -70)
+    detailsText:SetText(string.format("Класс: %s | Зона: %s", 
+        playerInfo.class or "Неизвестно", 
+        playerInfo.zone or "Неизвестно"))
+    
+    local cautionText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    cautionText:SetPoint("TOP", 0, -90)
+    cautionText:SetText("Это действие нельзя отменить!")
+    cautionText:SetTextColor(1, 0.5, 0.5)
+    
+    local confirmBtn = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
+    confirmBtn:SetSize(120, 25)
+    confirmBtn:SetPoint("BOTTOMLEFT", 50, 10)
+    confirmBtn:SetText("Исключить")
+    confirmBtn:SetScript("OnClick", function()
+        self:PerformKickPlayer(playerName, playerInfo)
+        confirmFrame:Hide()
+    end)
+    
+    local cancelBtn = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
+    cancelBtn:SetSize(120, 25)
+    cancelBtn:SetPoint("BOTTOMRIGHT", -50, 10)
+    cancelBtn:SetText("Отмена")
+    cancelBtn:SetScript("OnClick", function()
+        confirmFrame:Hide()
+    end)
+    
+    confirmFrame:Show()
+end
+
+function MuteManager:PerformKickPlayer(playerName, playerInfo)
+    if not IsInGuild() then
+        self:ShowNotification("Ошибка: Вы не в гильдии")
+        return false
+    end
+    
+    if not CanEditOfficerNote() then
+        self:ShowNotification("Ошибка: Недостаточно прав для исключения")
+        return false
+    end
+    
+    local myInfo = self:GetPlayerInfo(UnitName("player"))
+    if myInfo and playerInfo.fullName == myInfo.fullName then
+        self:ShowNotification("Ошибка: Нельзя исключить себя")
+        return false
+    end
+    
+    
+    local success = GuildUninvite(playerName)
+    
+    if success then
+        self:ShowNotification(string.format("Игрок |cFFFF0000%s|r исключен из гильдии", playerName))
+        self:Print(string.format("ИСКЛЮЧЕН: %s (%s, %d уровень) - %s", 
+            playerName, 
+            playerInfo.rankName, 
+            playerInfo.level or 0,
+            date("%d.%m %H:%M")))
+        
+        self:DelayedExecute(2, function()
+            self:SearchPlayer(playerName)
+        end)
+        
+        return true
+    else
+        self:ShowNotification("Ошибка при исключении игрока")
+        return false
     end
 end
 
