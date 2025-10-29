@@ -117,6 +117,17 @@ function ToggleMinimapMenu()
                 SlashCmdList["AFERISTHELPER"]("class")
             end,
             notCheckable = true
+        },
+        {
+            text = "Рейтинг аферистов",
+            func = function() 
+                if _G.AferistHelperRatingUI then
+                    _G.AferistHelperRatingUI:Show()
+                else
+                    print("|cFFFF0000Ошибка:|r Интерфейс рейтингов не загружен")
+                end
+            end,
+            notCheckable = true
         }
     }
     
@@ -134,15 +145,6 @@ function ToggleMinimapMenu()
             end,
             notCheckable = true
         })
-        
-        --[[table.insert(menuItems, {
-            text = "Активные муты",
-            func = function() 
-                MuteManager:ShowTab(2)
-                MuteManager:ToggleWindow()
-            end,
-            notCheckable = true
-        })]]--
         
         table.insert(menuItems, {
             text = "Настройки",
@@ -1554,28 +1556,33 @@ function MuteManager:ShowRemoveConfirmation()
     warningText:SetText("Вы действительно хотите исключить следующих игроков?")
     warningText:SetTextColor(1, 1, 0)
     
+    local infoText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    infoText:SetPoint("TOP", 0, -45)
+    infoText:SetText("Игроки будут удаляться с задержкой 1 секунды между каждым удалением.")
+    infoText:SetTextColor(0.8, 0.8, 1)
+    
     local playersText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    playersText:SetPoint("TOPLEFT", 15, -50)
-    playersText:SetSize(420, 180)
+    playersText:SetPoint("TOPLEFT", 15, -70)
+    playersText:SetSize(420, 150)
     playersText:SetJustifyH("LEFT")
     playersText:SetJustifyV("TOP")
     
     local playerList = {}
     for i, candidate in ipairs(selectedPlayers) do
-        table.insert(playerList, string.format("%s(%d)%dд.", candidate.name, candidate.level, candidate.daysOffline))
+        table.insert(playerList, string.format("%s (%d ур., %d дн.)", candidate.name, candidate.level, candidate.daysOffline))
     end
     
-    local displayText = table.concat(playerList, ", ")
+    local displayText = table.concat(playerList, "\n")
     
-    if #displayText > 150 then
-        displayText = displayText:sub(1, 150) .. "..."
+    if #selectedPlayers > 10 then
+        displayText = table.concat(playerList, "\n", 1, 10) .. "\n... и еще " .. (#selectedPlayers - 10) .. " игроков"
     end
     
     playersText:SetText(displayText)
     
     local statsText = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    statsText:SetPoint("TOP", 0, -180)
-    statsText:SetText(string.format("Всего игроков: %d", #selectedPlayers))
+    statsText:SetPoint("TOP", 0, -190)
+    statsText:SetText(string.format("Всего игроков: %d | Время удаления: ~%d секунд", #selectedPlayers, #selectedPlayers * 1))
     statsText:SetTextColor(1, 0.8, 0)
     
     local confirmBtn = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
@@ -1583,9 +1590,9 @@ function MuteManager:ShowRemoveConfirmation()
     confirmBtn:SetPoint("BOTTOMLEFT", 50, 10)
     confirmBtn:SetText("Подтвердить")
     confirmBtn:SetScript("OnClick", function()
-		self:PerformRemoveSelectedPlayers()
-		confirmFrame:Hide()
-	end)
+        self:PerformRemoveSelectedPlayers()
+        confirmFrame:Hide()
+    end)
     
     local cancelBtn = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
     cancelBtn:SetSize(120, 25)
@@ -1623,49 +1630,75 @@ function MuteManager:PerformRemoveSelectedPlayers()
         return
     end
     
+    local selectedPlayers = self:GetSelectedCandidates()
+    if #selectedPlayers == 0 then
+        self:ShowNotification("Не выбрано ни одного игрока для удаления")
+        return
+    end
+    
+    self:ShowNotification("Начинается удаление " .. #selectedPlayers .. " игроков с задержкой 1 секунды...")
+    
     local removedCount = 0
     local skippedCount = 0
     local errors = {}
     
-    for i, candidateFrame in ipairs(container.candidateFrames) do
-        if candidateFrame.checkbox:GetChecked() and self.cleanupCandidates[i] then
-            local candidate = self.cleanupCandidates[i]
-            
-            if candidate.rankIndex > 0 then
-                local success = GuildUninvite(candidate.name)
-                if success then
-                    removedCount = removedCount + 1
-                    self:Print("Удален: " .. candidate.name .. " (" .. candidate.daysOffline .. " дней оффлайн, ур. " .. candidate.level .. ")")
-                else
-                    table.insert(errors, candidate.name)
-                end
-            else
-                skippedCount = skippedCount + 1
-                self:Print("Пропущен: " .. candidate.name .. " (лидер гильдии)")
+    local function removePlayerWithDelay(index)
+        if index > #selectedPlayers then
+            local statusMsg = string.format("Удаление завершено: Удалено: %d, Пропущено: %d", removedCount, skippedCount)
+            if #errors > 0 then
+                statusMsg = statusMsg .. ", Ошибок: " .. #errors
             end
+            
+            statusText:SetText(statusMsg)
+            self:ShowNotification("Массовое удаление завершено")
+            
+            self:DelayedExecute(2, function()
+                GuildRoster()
+                local days = tonumber(parent.daysEdit:GetText()) or 30
+                local maxLevel = tonumber(parent.levelEdit:GetText()) or 80
+                local selectedRanks = self:GetSelectedRanks()
+                local excludePublicNote = parent.excludePublicNoteCheckbox:GetChecked()
+                local excludeOfficerNote = parent.excludeOfficerNoteCheckbox:GetChecked()
+                self:FindInactivePlayers(days, maxLevel, selectedRanks, excludePublicNote, excludeOfficerNote)
+            end)
+            
+            return
         end
+        
+        local candidate = selectedPlayers[index]
+        
+        if candidate.rankIndex > 0 then
+            local success = GuildUninvite(candidate.name)
+            if success then
+                removedCount = removedCount + 1
+                self:Print("Удален: " .. candidate.name .. " (" .. candidate.daysOffline .. " дней оффлайн, ур. " .. candidate.level .. ")")
+            else
+                table.insert(errors, candidate.name)
+                self:Print("Ошибка удаления: " .. candidate.name)
+            end
+        else
+            skippedCount = skippedCount + 1
+            self:Print("Пропущен: " .. candidate.name .. " (лидер гильдии)")
+        end
+        
+        statusText:SetText(string.format("Удаление... (%d/%d)", index, #selectedPlayers))
+        
+        self:DelayedExecute(1, function()
+            removePlayerWithDelay(index + 1)
+        end)
     end
     
-    self:DelayedExecute(2, function()
-        GuildRoster()
-        local days = tonumber(parent.daysEdit:GetText()) or 30
-        local maxLevel = tonumber(parent.levelEdit:GetText()) or 80
-        local selectedRanks = self:GetSelectedRanks()
-        local excludePublicNote = parent.excludePublicNoteCheckbox:GetChecked()
-        local excludeOfficerNote = parent.excludeOfficerNoteCheckbox:GetChecked()
-        self:FindInactivePlayers(days, maxLevel, selectedRanks, excludePublicNote, excludeOfficerNote)
-    end)
-    
-    local statusMsg = string.format("Удалено: %d, Пропущено: %d", removedCount, skippedCount)
-    if #errors > 0 then
-        statusMsg = statusMsg .. ", Ошибок: " .. #errors
-    end
-    
-    statusText:SetText(statusMsg)
-    self:ShowNotification("Удаление завершено")
+    removePlayerWithDelay(1)
 end
 
 function MuteManager:RemoveSelectedPlayers()
+    local selectedPlayers = self:GetSelectedCandidates()
+    
+    if #selectedPlayers == 0 then
+        self:ShowNotification("Не выбрано ни одного игрока для удаления")
+        return
+    end
+    
     self:ShowRemoveConfirmation()
 end
 
