@@ -928,6 +928,120 @@ SlashCmdList["AFERISTHELPER"] = function(msg)
     end
 end
 
+local RatingManager = _G.AferistHelperRatingManager
+local RatingUI = _G.AferistHelperRatingUI
+
+SLASH_AFERISTHELPER_RATING1 = "/rating"
+SLASH_AFERISTHELPER_RATING2 = "/ratings"
+
+SlashCmdList["AFERISTHELPER_RATING"] = function(msg)
+    msg = msg:lower()
+    
+    local RatingManager = _G.AferistHelperRatingManager
+    local RatingUI = _G.AferistHelperRatingUI
+    
+    if not RatingManager then
+        print("|cFFFF0000Ошибка:|r RatingManager не загружен.")
+        return
+    end
+    
+    if msg == "" or msg == "show" then
+        if RatingUI then
+            RatingUI:Show()
+        else
+            print("|cFFFF0000Ошибка:|r Интерфейс рейтингов не загружен")
+        end
+    elseif msg == "hide" then
+        if RatingUI then
+            RatingUI:Hide()
+        else
+            print("|cFFFF0000Ошибка:|r Интерфейс рейтингов не загружен")
+        end
+    elseif msg == "sync" then
+        RatingManager:SyncWithGuild()
+        print("|cFF00FF00Синхронизация запущена|r")
+    elseif msg == "stats" then
+        local stats = RatingManager:GetStats()
+        print(string.format("|cFF00FF00Статистика:|r Игроков: %d, Рейтингов: %d, Средний: %.1f", 
+            stats.totalPlayers, stats.totalRatings, stats.avgRating))
+    elseif msg == "help" then
+        print("|cFF00FF00Команды рейтингов:|r")
+        print("|cFFFFFF00/rating|r - открыть окно рейтингов")
+        print("|cFFFFFF00/rating sync|r - синхронизировать данные")
+        print("|cFFFFFF00/rating stats|r - показать статистику")
+        print("|cFFFFFF00/rating help|r - показать эту справку")
+    else
+        local parts = {}
+        for part in string.gmatch(msg, "%S+") do
+            table.insert(parts, part)
+        end
+        
+        if #parts >= 2 then
+            local playerName = parts[1]
+            local ratingStr = parts[2]
+            local reason = table.concat(parts, " ", 3)
+            
+            local rating = tonumber(ratingStr)
+            if rating and (rating == 1 or rating == -1) then
+                local success, message = RatingManager:AddRating(playerName, rating, reason)
+                if success then
+                    print("|cFF00FF00" .. message .. "|r")
+                else
+                    print("|cFFFF0000Ошибка:|r " .. message)
+                end
+            else
+                print("|cFFFF0000Ошибка:|r Неверный формат рейтинга. Используйте +1 или -1")
+            end
+        else
+            print("|cFFFF0000Ошибка:|r Неверный формат команды. Используйте: /rating <имя> <+1/-1> [причина]")
+        end
+    end
+end
+local function DiagnoseRatingSystem()
+    print("=== ДИАГНОСТИКА СИСТЕМЫ РЕЙТИНГОВ ===")
+    
+    if _G.AferistHelperRatingManager then
+        print("✓ RatingManager найден в глобальном пространстве")
+        if _G.AferistHelperRatingManager.IsInitialized then
+            print("✓ Метод IsInitialized существует")
+            if _G.AferistHelperRatingManager:IsInitialized() then
+                print("✓ RatingManager инициализирован")
+            else
+                print("✗ RatingManager НЕ инициализирован")
+            end
+        else
+            print("✗ Метод IsInitialized НЕ существует")
+        end
+    else
+        print("✗ RatingManager НЕ найден в глобальном пространстве")
+    end
+    
+    if _G.AferistHelperRatingUI then
+        print("✓ RatingUI найден в глобальном пространстве")
+    else
+        print("✗ RatingUI НЕ найден в глобальном пространстве")
+    end
+    
+    if AferistHelperDB then
+        print("✓ AferistHelperDB существует")
+        if AferistHelperDB.guild_ratings then
+            print("✓ guild_ratings существует")
+        else
+            print("✗ guild_ratings НЕ существует")
+        end
+    else
+        print("✗ AferistHelperDB НЕ существует")
+    end
+    
+    print("=== КОНЕЦ ДИАГНОСТИКИ ===")
+end
+
+SLASH_AFERISTHELPER_DIAG1 = "/ratingdiag"
+SlashCmdList["AFERISTHELPER_DIAG"] = function()
+    DiagnoseRatingSystem()
+end
+
+
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
 loader:SetScript("OnEvent", function(self, event, addonName)
@@ -936,6 +1050,20 @@ loader:SetScript("OnEvent", function(self, event, addonName)
         
         currentPlayerClass = select(2, UnitClass("player"))
         AferistHelperDB.class = currentPlayerClass
+        
+        local RatingManager = _G.AferistHelperRatingManager
+        local RatingUI = _G.AferistHelperRatingUI
+        
+        if RatingManager then
+            local success = RatingManager:Initialize()
+            if success then
+                print("|cFF00FF00Система рейтингов инициализирована|r")
+            else
+                print("|cFFFF0000Ошибка инициализации системы рейтингов|r")
+            end
+        else
+            print("|cFFFF0000Ошибка:|r RatingManager не найден")
+        end
         
         if type(LoadDefaultConfigs) == "function" then
             LoadDefaultConfigs()
@@ -957,7 +1085,6 @@ loader:SetScript("OnEvent", function(self, event, addonName)
             }
             AferistHelperDB._metadata.last_updated = time()
         end
-		
         
         mailShownCount = AferistHelperDB.mailShownCount or 0
         
@@ -966,7 +1093,12 @@ loader:SetScript("OnEvent", function(self, event, addonName)
         print("|cFF00FF00Aferist Helper|r загружен! Используйте |cFFFFFF00/ah|r для открытия.")
         print("|cFFFFFF00Рекомендации для |r" .. currentPlayerClass .. "|cFFFFFF00: /ah class|r")
         
+        if RatingManager and RatingManager:IsInitialized() and RatingUI then
+            print("|cFFFFFF00Система рейтингов: /rating|r")
+        else
+            print("|cFFFF0000Предупреждение:|r Система рейтингов не полностью загружена")
+        end
+        
         self:UnregisterEvent("ADDON_LOADED")
     end
 end)
-
