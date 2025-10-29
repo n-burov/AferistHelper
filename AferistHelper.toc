@@ -16,5 +16,7 @@
 
 AferistHelper.lua
 AferistHelper_Configs.lua
-
+RatingManager.lua
+RatingUI.lua
 MuteManager.lua
+
