@@ -304,11 +304,14 @@ function RatingManager:ScanGuildForNoteRatings()
         return {}
     end
     
+    -- Принудительно запрашиваем полный список гильдии
+    GuildRoster()
+    
     local playersFromNotes = {}
     local totalMembers = GetNumGuildMembers()
     
     for i = 1, totalMembers do
-        local name, rank, rankIndex, level, class, zone, note, officernote, online = GetGuildRosterInfo(i)
+        local name, rank, rankIndex, level, class, zone, note, officernote, online, status = GetGuildRosterInfo(i)
         if name then
             local plainName = name:gsub("-.*", "")
             local noteRating = self:GetRatingFromNote(note)
@@ -321,7 +324,9 @@ function RatingManager:ScanGuildForNoteRatings()
                     level = level,
                     class = class,
                     online = online,
-                    note = note
+                    note = note,
+                    zone = zone,
+                    status = status
                 })
             end
         end
@@ -336,6 +341,9 @@ function RatingManager:GetTopPlayers(limit)
     end
     
     limit = limit or 10
+    
+    -- Принудительно загружаем полный список гильдии
+    GuildRoster()
     
     -- ТОЛЬКО данные из заметок!
     local players = self:ScanGuildForNoteRatings()
@@ -362,6 +370,9 @@ function RatingManager:DelayedGuildScan(callback)
         return
     end
     
+    -- Принудительно запрашиваем полный список гильдии
+    GuildRoster()
+    
     local scanFrame = CreateFrame("Frame")
     local currentIndex = 1
     local totalMembers = GetNumGuildMembers()
@@ -372,7 +383,7 @@ function RatingManager:DelayedGuildScan(callback)
         local endIndex = math.min(currentIndex + BATCH_SIZE - 1, totalMembers)
         
         for i = currentIndex, endIndex do
-            local name, rank, rankIndex, level, class, zone, note, officernote, online = GetGuildRosterInfo(i)
+            local name, rank, rankIndex, level, class, zone, note, officernote, online, status = GetGuildRosterInfo(i)
             if name then
                 local plainName = name:gsub("-.*", "")
                 local noteRating = RatingManager:GetRatingFromNote(note)
@@ -384,7 +395,9 @@ function RatingManager:DelayedGuildScan(callback)
                         rank = rank,
                         level = level,
                         class = class,
-                        online = online
+                        online = online,
+                        zone = zone,
+                        status = status
                     })
                 end
             end
