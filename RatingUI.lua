@@ -95,29 +95,37 @@ function RatingUI:SwitchTab(tabName)
     end
 end
 
--- Показ топа игроков
 function RatingUI:ShowTopPlayers(parent)
-    local topPlayers = RatingManager:GetTopPlayers(15) -- Уменьшено с 20 до 15
-    
     local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", 0, -5) -- Уменьшен отступ
-    title:SetText("|cFFFFFF00Топ игроков по рейтингу|r")
+    title:SetPoint("TOP", 0, -5)
+    title:SetText("Топ игроков по рейтингу")
     table.insert(parent.elements, title)
     
-    if #topPlayers == 0 then
-        local noData = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        noData:SetPoint("TOP", 0, -35) -- Уменьшен отступ
-        noData:SetText("Нет данных о рейтингах")
-        table.insert(parent.elements, noData)
-        return
-    end
+    local loadingText = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    loadingText:SetPoint("TOP", 0, -35)
+    loadingText:SetText("Загрузка данных гильдии...")
+    table.insert(parent.elements, loadingText)
     
-    local yOffset = -35 -- Уменьшен отступ
-    for i, player in ipairs(topPlayers) do
-        local playerFrame = self:CreatePlayerCard(parent, player, i, yOffset)
-        table.insert(parent.elements, playerFrame)
-        yOffset = yOffset - 50 -- Уменьшено с 60 до 50
-    end
+    -- Асинхронная загрузка топа
+    RatingManager:GetTopPlayersAsync(15, function(topPlayers)
+        -- Удаляем текст загрузки
+        loadingText:Hide()
+        
+        if not topPlayers or #topPlayers == 0 then
+            local noData = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            noData:SetPoint("TOP", 0, -35)
+            noData:SetText("Нет игроков с рейтингом в заметках")
+            table.insert(parent.elements, noData)
+            return
+        end
+        
+        local yOffset = -35
+        for i, player in ipairs(topPlayers) do
+            local playerFrame = self:CreatePlayerCard(parent, player, i, yOffset)
+            table.insert(parent.elements, playerFrame)
+            yOffset = yOffset - 50
+        end
+    end)
 end
 
 -- Создание карточки истории рейтинга
