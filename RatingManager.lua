@@ -7,6 +7,8 @@ local CONFIG = {
     MESSAGE_PREFIX = "AFERIST_RATING",
     VERSION = "1.0",
     WEEKLY_DECAY_PERCENT = 10,
+    NOTE_UPDATE_DELAY = 1.5,
+    NOTE_BATCH_SIZE = 5,
 }
 
 local ratings = {}
@@ -19,6 +21,12 @@ local initialized = false
 
 local commPrefix = "AFERIST_RATING"
 
+local note_update_queue = {}
+local note_update_timer = nil
+local last_note_update_time = 0
+local pending_note_updates = {}
+local processed_ratings = {}
+
 function RatingManager:Initialize()
     if initialized then
         return true
@@ -30,13 +38,13 @@ function RatingManager:Initialize()
     self:StartSyncTimer()
     self:ResetDailyCounters()
     self:InitializeContextMenu()
+    self:CleanupProcessedRatings()
     
     if RegisterAddonMessagePrefix then
         RegisterAddonMessagePrefix(commPrefix)
     end
     
     initialized = true
-    print("|cFF00FF00RatingManager инициализирован|r")
     return true
 end
 
@@ -81,13 +89,39 @@ function RatingManager:SaveData()
     }
 end
 
+function RatingManager:CleanupProcessedRatings()
+    if not processed_ratings then
+        processed_ratings = {}
+        return
+    end
+    
+    local currentTime = time()
+    local maxAge = 86400
+    local keysToRemove = {}
+    
+    for key, _ in pairs(processed_ratings) do
+        local parts = {key:match("([^_]+)_([^_]+)_(%d+)")}
+        if #parts == 3 then
+            local timestamp = tonumber(parts[3])
+            if timestamp and (currentTime - timestamp) > maxAge then
+                table.insert(keysToRemove, key)
+            end
+        else
+            table.insert(keysToRemove, key)
+        end
+    end
+    
+    for _, key in ipairs(keysToRemove) do
+        processed_ratings[key] = nil
+    end
+end
+
 function RatingManager:SetupChatMonitor()
     local eventFrame = CreateFrame("Frame")
     eventFrame:RegisterEvent("CHAT_MSG_GUILD")
     eventFrame:RegisterEvent("CHAT_MSG_OFFICER")
     
     eventFrame:SetScript("OnEvent", function(self, event, message, sender, ...)
-        --print("|cFFFFFF00Событие чата:|r " .. event .. " от " .. sender)
         RatingManager:ParseChatMessage(message, sender, event)
     end)
 end
@@ -95,25 +129,10 @@ end
 function RatingManager:ParseChatMessage(message, sender, channel)
     if sender == UnitName("player") then return end
     
-    --print("|cFFFFFF00=== ДЕТАЛЬНАЯ ОТЛАДКА ЧАТА ===|r")
-    --print("Канал: " .. (channel or "unknown"))
-    --print("Отправитель: " .. sender)
-    --print("Исходное сообщение: '" .. message .. "'")
-    
-    -- Очищаем сообщение - удаляем ВСЁ до : + пробел
     local cleanMessage = message
-    
-    -- Удаляем всё до двоеточия и пробела после него
     cleanMessage = cleanMessage:match(":%s+(.+)") or cleanMessage
-    
-    --print("После удаления до ': ': '" .. cleanMessage .. "'")
-    
-    -- Если всё ещё есть префиксы, удаляем всё до + или -
     cleanMessage = cleanMessage:match("[%+%-].+") or cleanMessage
     
-    --print("После удаления до '+/-': '" .. cleanMessage .. "'")
-    
-    -- Упрощенные паттерны
     local patterns = {
         "([%+%-])rep%s+(.+)",
         "([%+%-])реп%s+(.+)",
@@ -122,60 +141,37 @@ function RatingManager:ParseChatMessage(message, sender, channel)
     }
     
     for i, pattern in ipairs(patterns) do
-        --print("Паттерн " .. i .. ": " .. pattern)
         local sign, rest = cleanMessage:match(pattern)
         
         if sign and rest then
-            --print("|cFF00FF00УСПЕХ!|r Найдено:")
-            --print("  Знак: " .. sign)
-            --print("  Остаток: '" .. rest .. "'")
-            
             local targetPlayer = rest:match("([^%s]+)")
             local reason = rest:sub(#targetPlayer + 2) or "Голосование в чате"
             
-            --print("  Игрок: '" .. targetPlayer .. "'")
-            --print("  Причина: '" .. reason .. "'")
-            
             if targetPlayer then
                 local rating = (sign == "+") and 1 or -1
-                
-                
                 self:ProcessChatVote(sender, targetPlayer, rating, reason)
                 return
             end
-        else
-            --print("|cFFFF0000Не совпало|r")
         end
     end
     
-    -- Если не нашли, пробуем просто найти +rep или -rep в любом месте сообщения
     local repPos = message:find("+rep") or message:find("-rep") or message:find("+реп") or message:find("-реп")
     if repPos then
-        --print("|cFFFFFF00Найдены ключевые слова в позиции:|r " .. repPos)
-        
-        -- Берем часть сообщения после +rep/-rep
         local afterRep = message:sub(repPos)
-        --print("После ключевых слов: '" .. afterRep .. "'")
-        
         local sign = afterRep:sub(1, 1)
-        local rest = afterRep:sub(5) -- Пропускаем "+rep"
+        local rest = afterRep:sub(5)
         
-        -- Если это кириллица, пропускаем "+реп" (4 байта)
         if afterRep:sub(2, 3) == "ре" then
-            rest = afterRep:sub(5) -- Пропускаем "+реп" 
+            rest = afterRep:sub(5)
         end
         
-        rest = rest:gsub("^%s*", "") -- Убираем начальные пробелы
+        rest = rest:gsub("^%s*", "")
         
         local targetPlayer = rest:match("([^%s]+)")
         local reason = rest:sub(#targetPlayer + 2) or "Голосование в чате"
-        
-        --print("|cFF00FF00Экстренный парсинг:|r " .. sign .. " → " .. targetPlayer)
         self:ProcessChatVote(sender, targetPlayer, (sign == "+") and 1 or -1, reason)
         return
     end
-    
-    --print("|cFFFF0000НИ ОДИН ПАТТЕРН НЕ СРАБОТАЛ|r")
 end
 
 function RatingManager:ProcessChatVote(sender, targetPlayer, rating, reason)
@@ -219,14 +215,233 @@ function RatingManager:ProcessChatVote(sender, targetPlayer, rating, reason)
         ratings[targetPlayer].total_rating = ratings[targetPlayer].total_rating + rating
         ratings[targetPlayer].last_updated = time()
         
-        table.insert(sync_queue, ratingData)
         self:SaveData()
         
-        print(string.format("|cFF00FF00Обработан голос в чате:|r %s %s %s%d|r", 
-            sender, targetPlayer, rating > 0 and "|cFF00FF00+" or "|cFFFF0000", rating))
-        
-        self:SyncWithOfficers()
+        if CanEditPublicNote() then
+            local applied = self:ApplyRatingToNoteSimple(targetPlayer, rating, ratingData)
+            if applied then
+                table.insert(sync_queue, ratingData)
+                self:SyncWithOfficers()
+            end
+        else
+            table.insert(sync_queue, ratingData)
+            self:SyncWithOfficers()
+        end
     end
+end
+
+function RatingManager:ApplyRatingToNote(targetPlayer, ratingChange, ratingData)
+    if not ratingData or not ratingData.timestamp then
+        return false
+    end
+    
+    local currentTime = time()
+    if currentTime - ratingData.timestamp > 30 then
+        return false
+    end
+    
+    GuildRoster()
+    
+    local waitFrame = CreateFrame("Frame")
+    local waitComplete = false
+    waitFrame:SetScript("OnUpdate", function(self, elapsed)
+        self.elapsed = (self.elapsed or 0) + elapsed
+        if self.elapsed >= 0.2 then
+            waitComplete = true
+            self:SetScript("OnUpdate", nil)
+        end
+    end)
+    
+    while not waitComplete do
+        coroutine.yield()
+    end
+    
+    local playerInfo = self:GetPlayerInfo(targetPlayer)
+    if not playerInfo then
+        return false
+    end
+    
+    local currentNote = playerInfo.note or ""
+    local currentRating = self:GetRatingFromNote(currentNote)
+    
+    local expectedPreviousRating = currentRating - ratingChange
+    
+    local ratingKey = string.format("%s_%s_%d", 
+        targetPlayer, 
+        ratingData.sender or "", 
+        ratingData.timestamp or 0)
+    
+    if not processed_ratings then
+        processed_ratings = {}
+    end
+    
+    if processed_ratings[ratingKey] then
+        return false
+    end
+    
+    if currentRating ~= expectedPreviousRating then
+        return false
+    end
+    
+    local expectedNewRating = currentRating + ratingChange
+    local updatedNote = self:UpdateNoteWithRating(currentNote, expectedNewRating)
+    
+    if not self:SetGuildMemberNoteSilent(targetPlayer, updatedNote) then
+        return false
+    end
+    
+    GuildRoster()
+    
+    waitFrame = CreateFrame("Frame")
+    waitComplete = false
+    waitFrame:SetScript("OnUpdate", function(self, elapsed)
+        self.elapsed = (self.elapsed or 0) + elapsed
+        if self.elapsed >= 0.3 then
+            waitComplete = true
+            self:SetScript("OnUpdate", nil)
+        end
+    end)
+    
+    while not waitComplete do
+        coroutine.yield()
+    end
+    
+    local verifyInfo = self:GetPlayerInfo(targetPlayer)
+    if not verifyInfo then
+        return false
+    end
+    
+    local verifyNote = verifyInfo.note or ""
+    local verifyRating = self:GetRatingFromNote(verifyNote)
+    
+    if verifyRating == expectedNewRating then
+        processed_ratings[ratingKey] = true
+        return true
+    end
+    
+    return false
+end
+
+function RatingManager:ApplyRatingToNoteSimple(targetPlayer, ratingChange, ratingData)
+    if not ratingData or not ratingData.timestamp then
+        return false
+    end
+    
+    local currentTime = time()
+    if currentTime - ratingData.timestamp > 30 then
+        return false
+    end
+    
+    if not processed_ratings then
+        processed_ratings = {}
+    end
+    
+    local ratingKey = string.format("%s_%s_%d", 
+        targetPlayer, 
+        ratingData.sender or "", 
+        ratingData.timestamp or 0)
+    
+    if processed_ratings[ratingKey] then
+        return false
+    end
+    
+    GuildRoster()
+    
+    local playerInfo = self:GetPlayerInfo(targetPlayer)
+    if not playerInfo then
+        processed_ratings[ratingKey] = true
+        return false
+    end
+    
+    local currentNote = playerInfo.note or ""
+    local currentRating = self:GetRatingFromNote(currentNote)
+    local expectedNewRating = currentRating + ratingChange
+    
+    local localRatingCheck = false
+    if ratings[targetPlayer] then
+        for _, existingRating in ipairs(ratings[targetPlayer].ratings) do
+            if existingRating.sender == ratingData.sender and
+               existingRating.target == ratingData.target and
+               math.abs(existingRating.timestamp - ratingData.timestamp) < 5 then
+                localRatingCheck = true
+                break
+            end
+        end
+    end
+    
+    if localRatingCheck then
+        processed_ratings[ratingKey] = true
+        return false
+    end
+    
+    if not CanEditPublicNote() then
+        processed_ratings[ratingKey] = true
+        return false
+    end
+    
+    local updatedNote = self:UpdateNoteWithRating(currentNote, expectedNewRating)
+    
+    if not self:SetGuildMemberNoteSilent(targetPlayer, updatedNote) then
+        processed_ratings[ratingKey] = true
+        return false
+    end
+    
+    GuildRoster()
+    
+    local verifyFrame = CreateFrame("Frame")
+    local verified = false
+    local verificationComplete = false
+    
+    verifyFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
+    verifyFrame:SetScript("OnEvent", function(self, event)
+        if verificationComplete then
+            return
+        end
+        
+        verificationComplete = true
+        self:UnregisterEvent("GUILD_ROSTER_UPDATE")
+        
+        local verifyInfo = RatingManager:GetPlayerInfo(targetPlayer)
+        if verifyInfo then
+            local verifyNote = verifyInfo.note or ""
+            local verifyRating = RatingManager:GetRatingFromNote(verifyNote)
+            
+            if verifyRating == expectedNewRating then
+                verified = true
+            end
+        end
+        
+        processed_ratings[ratingKey] = true
+    end)
+    
+    GuildRoster()
+    
+    local elapsed = 0
+    local timeoutFrame = CreateFrame("Frame")
+    timeoutFrame:SetScript("OnUpdate", function(self, delta)
+        elapsed = elapsed + delta
+        if elapsed >= 1.0 then
+            self:SetScript("OnUpdate", nil)
+            if not verificationComplete then
+                verificationComplete = true
+                verifyFrame:UnregisterEvent("GUILD_ROSTER_UPDATE")
+                
+                local verifyInfo = RatingManager:GetPlayerInfo(targetPlayer)
+                if verifyInfo then
+                    local verifyNote = verifyInfo.note or ""
+                    local verifyRating = RatingManager:GetRatingFromNote(verifyNote)
+                    
+                    if verifyRating == expectedNewRating then
+                        verified = true
+                    end
+                end
+                
+                processed_ratings[ratingKey] = true
+            end
+        end
+    end)
+    
+    return true
 end
 
 function RatingManager:CanRatePlayerChat(targetPlayer, sender)
@@ -304,7 +519,6 @@ function RatingManager:ScanGuildForNoteRatings()
         return {}
     end
     
-    -- Принудительно запрашиваем полный список гильдии
     GuildRoster()
     
     local playersFromNotes = {}
@@ -342,13 +556,10 @@ function RatingManager:GetTopPlayers(limit)
     
     limit = limit or 10
     
-    -- Принудительно загружаем полный список гильдии
     GuildRoster()
     
-    -- ТОЛЬКО данные из заметок!
     local players = self:ScanGuildForNoteRatings()
     
-    -- Сортировка по рейтингу из заметок
     table.sort(players, function(a, b)
         if a.rating == b.rating then
             return a.name < b.name
@@ -370,14 +581,13 @@ function RatingManager:DelayedGuildScan(callback)
         return
     end
     
-    -- Принудительно запрашиваем полный список гильдии
     GuildRoster()
     
     local scanFrame = CreateFrame("Frame")
     local currentIndex = 1
     local totalMembers = GetNumGuildMembers()
     local scannedPlayers = {}
-    local BATCH_SIZE = 10 -- Игроков за кадр
+    local BATCH_SIZE = 10
     
     scanFrame:SetScript("OnUpdate", function(self, elapsed)
         local endIndex = math.min(currentIndex + BATCH_SIZE - 1, totalMembers)
@@ -427,7 +637,6 @@ function RatingManager:GetTopPlayersAsync(limit, callback)
             players = {}
         end
         
-        -- Сортировка
         table.sort(players, function(a, b)
             if a.rating == b.rating then
                 return a.name < b.name
@@ -462,13 +671,26 @@ function RatingManager:SyncWithOfficers()
         return
     end
     
-    if CanEditPublicNote() then
-        --print("|cFFFFFF00Обновляем заметки самостоятельно|r")
-        self:ProcessOfficerSync({
-            data = sync_queue,
-            sender = UnitName("player"),
-            timestamp = time()
-        })
+    if not processed_ratings then
+        processed_ratings = {}
+    end
+    
+    local filtered_queue = {}
+    
+    for _, ratingData in ipairs(sync_queue) do
+        local ratingKey = string.format("%s_%s_%d", 
+            ratingData.target, 
+            ratingData.sender or "", 
+            ratingData.timestamp or 0)
+        
+        if not processed_ratings[ratingKey] then
+            table.insert(filtered_queue, ratingData)
+        end
+    end
+    
+    if #filtered_queue == 0 then
+        sync_queue = {}
+        return
     end
     
     local officers = self:FindOfficersWithNoteAccess()
@@ -476,12 +698,16 @@ function RatingManager:SyncWithOfficers()
     
     for _, officerName in ipairs(officers) do
         if officerName ~= playerName then
-            self:SendRatingData(officerName, sync_queue, "officer_sync")
+            self:SendRatingData(officerName, filtered_queue, "officer_sync")
         end
     end
     
-    if #officers > 1 then
-        print(string.format("|cFFFFFF00Синхронизация:|r отправлено %d рейтингов %d офицерам", #sync_queue, #officers - 1))
+    for _, ratingData in ipairs(filtered_queue) do
+        local ratingKey = string.format("%s_%s_%d", 
+            ratingData.target, 
+            ratingData.sender or "", 
+            ratingData.timestamp or 0)
+        processed_ratings[ratingKey] = true
     end
     
     sync_queue = {}
@@ -490,35 +716,157 @@ function RatingManager:SyncWithOfficers()
 end
 
 function RatingManager:ProcessOfficerSync(messageData)
-    local processed = 0
-    
-    for _, ratingData in ipairs(messageData.data) do
-        local playerInfo = self:GetPlayerInfo(ratingData.target)
-        if playerInfo then
-            local currentNote = playerInfo.note or ""
-            local currentRating = self:GetRatingFromNote(currentNote)
-            local newRating = currentRating + ratingData.rating
-            
-            print(string.format("|cFFFFFF00Обновление заметки:|r %s: %d → %d", 
-                ratingData.target, currentRating, newRating))
-            
-            local updatedNote = self:UpdateNoteWithRating(currentNote, newRating)
-            
-            if self:SetGuildMemberNote(ratingData.target, updatedNote, false) then
-                processed = processed + 1
-            else
-                print("|cFFFF0000Ошибка обновления заметки для:|r " .. ratingData.target)
-            end
-        else
-            print("|cFFFF0000Игрок не найден:|r " .. ratingData.target)
-        end
+    if not messageData or not messageData.data then
+        return
     end
     
-    if processed > 0 then
-        print(string.format("|cFF00FF00Обновлено заметок:|r %d", processed))
+    if not processed_ratings then
+        processed_ratings = {}
+    end
+    
+    for _, ratingData in ipairs(messageData.data) do
+        local ratingKey = string.format("%s_%s_%d", 
+            ratingData.target, 
+            ratingData.sender or "", 
+            ratingData.timestamp or 0)
+        
+        if not processed_ratings[ratingKey] then
+            if CanEditPublicNote() then
+                self:ApplyRatingToNoteSimple(ratingData.target, ratingData.rating, ratingData)
+            end
+        end
     end
 end
 
+function RatingManager:ScheduleBatchNoteUpdates()
+    if note_update_timer then
+        return
+    end
+    
+    local currentTime = GetTime()
+    local timeSinceLastUpdate = currentTime - last_note_update_time
+    
+    if timeSinceLastUpdate < CONFIG.NOTE_UPDATE_DELAY then
+        note_update_timer = CreateFrame("Frame")
+        local elapsed = 0
+        local delay = CONFIG.NOTE_UPDATE_DELAY - timeSinceLastUpdate
+        note_update_timer:SetScript("OnUpdate", function(self, delta)
+            elapsed = elapsed + delta
+            if elapsed >= delay then
+                self:SetScript("OnUpdate", nil)
+                note_update_timer = nil
+                RatingManager:ExecuteBatchNoteUpdates()
+            end
+        end)
+    else
+        self:ExecuteBatchNoteUpdates()
+    end
+end
+
+function RatingManager:ExecuteBatchNoteUpdates()
+    last_note_update_time = GetTime()
+    
+    if not next(pending_note_updates) then
+        return
+    end
+    
+    local updates_to_process = {}
+    local processed_count = 0
+    local total_rating_changes = 0
+    
+    GuildRoster()
+    
+    for updateKey, updateData in pairs(pending_note_updates) do
+        local playerInfo = self:GetPlayerInfo(updateData.target)
+        if playerInfo then
+            local currentNote = playerInfo.note or ""
+            local actualCurrentRating = self:GetRatingFromNote(currentNote)
+            
+            local newRating = actualCurrentRating + updateData.ratingChange
+            local updatedNote = self:UpdateNoteWithRating(currentNote, newRating)
+            
+            table.insert(updates_to_process, {
+                target = updateData.target,
+                newNote = updatedNote,
+                ratingChange = updateData.ratingChange
+            })
+            
+            total_rating_changes = total_rating_changes + math.abs(updateData.ratingChange)
+        end
+    end
+    
+    pending_note_updates = {}
+    
+    if #updates_to_process == 0 then
+        return
+    end
+    
+    for i = 1, #updates_to_process do
+        local updateData = updates_to_process[i]
+        
+        if self:SetGuildMemberNoteSilent(updateData.target, updateData.newNote) then
+            processed_count = processed_count + 1
+        end
+        
+        if i % CONFIG.NOTE_BATCH_SIZE == 0 then
+            GuildRoster()
+            local waitFrame = CreateFrame("Frame")
+            waitFrame:SetScript("OnUpdate", function(self, elapsed)
+                self.elapsed = (self.elapsed or 0) + elapsed
+                if self.elapsed >= 0.1 then
+                    self:SetScript("OnUpdate", nil)
+                end
+            end)
+        end
+    end
+    
+    GuildRoster()
+    
+    if processed_count > 0 then
+        if processed_count == 1 then
+            local singleUpdate = updates_to_process[1]
+            print(string.format("|cFF00FF00Рейтинг обновлен:|r %s %s%d", 
+                singleUpdate.target, 
+                singleUpdate.ratingChange >= 0 and "+" or "", 
+                singleUpdate.ratingChange))
+        else
+            print(string.format("|cFF00FF00Обновлено рейтингов:|r %d игроков (%s%d)", 
+                processed_count,
+                total_rating_changes >= 0 and "+" or "",
+                total_rating_changes))
+        end
+    end
+end
+
+function RatingManager:SetGuildMemberNoteSilent(playerName, noteText)
+    local targetInfo = self:GetPlayerInfo(playerName)
+    if not targetInfo then
+        return false
+    end
+    
+    if not CanEditPublicNote() then
+        return false
+    end
+    
+    GuildRosterSetPublicNote(targetInfo.rosterIndex, noteText)
+    return true
+end
+
+function RatingManager:SetGuildMemberNote(playerName, noteText, isOfficerNote)
+    local targetInfo = self:GetPlayerInfo(playerName)
+    if not targetInfo then 
+        return false 
+    end
+    
+    if not CanEditPublicNote() then 
+        return false 
+    end
+    
+    GuildRosterSetPublicNote(targetInfo.rosterIndex, noteText)
+    GuildRoster()
+    
+    return true
+end
 
 function RatingManager:AddRating(targetPlayer, rating, reason)
     if not initialized then
@@ -557,20 +905,19 @@ function RatingManager:AddRating(targetPlayer, rating, reason)
     ratings[targetPlayer].total_rating = ratings[targetPlayer].total_rating + rating
     ratings[targetPlayer].last_updated = time()
     
-    table.insert(sync_queue, ratingData)
-    
     self:IncrementDailyCounter()
-    
     self:SaveData()
     
-    local message = string.format("|cFF00FF00Рейтинг:|r %s %s%d|r (%s)", 
-        targetPlayer, 
-        rating > 0 and "|cFF00FF00+" or "|cFFFF0000", 
-        rating, 
-        reason or "без причины")
-    print(message)
-    
-    self:SyncWithOfficers()
+    if CanEditPublicNote() then
+        local applied = self:ApplyRatingToNoteSimple(targetPlayer, rating, ratingData)
+        if applied then
+            table.insert(sync_queue, ratingData)
+            self:SyncWithOfficers()
+        end
+    else
+        table.insert(sync_queue, ratingData)
+        self:SyncWithOfficers()
+    end
     
     return true, "Рейтинг успешно добавлен"
 end
@@ -859,12 +1206,19 @@ function RatingManager:SetupEventHandlers()
     eventFrame:RegisterEvent("CHAT_MSG_ADDON")
     eventFrame:RegisterEvent("GUILD_ROSTER_UPDATE")
     
+    local last_roster_update = 0
+    local roster_update_cooldown = 2
+    
     eventFrame:SetScript("OnEvent", function(self, event, ...)
         if event == "CHAT_MSG_ADDON" then
             local prefix, message, channel, sender = ...
             RatingManager:OnAddonMessage(prefix, message, channel, sender)
         elseif event == "GUILD_ROSTER_UPDATE" then
-            RatingManager:ResetDailyCounters()
+            local currentTime = GetTime()
+            if currentTime - last_roster_update > roster_update_cooldown then
+                last_roster_update = currentTime
+                RatingManager:ResetDailyCounters()
+            end
         end
     end)
 end
@@ -1099,23 +1453,15 @@ end
 
 function RatingManager:QuickRatePlayer(playerName, rating)
     if not self:CanRatePlayer(playerName) then
-        print("Ошибка: Нельзя поставить рейтинг этому игроку")
         return
     end
     
     if not self:HasDailyRatingLeft() then
-        print("Ошибка: Превышен лимит рейтингов на сегодня")
         return
     end
     
     local reason = "Быстрый рейтинг"
     local success, message = self:AddRating(playerName, rating, reason)
-    
-    if success then
-        print("Рейтинг успешно добавлен")
-    else
-        print("Ошибка: " .. message)
-    end
 end
 
 function RatingManager:ShowPlayerRatingInfo(playerName)
@@ -1195,29 +1541,6 @@ function RatingManager:GetPlayerInfo(playerName)
     end
     
     return nil
-end
-
-function RatingManager:SetGuildMemberNote(playerName, noteText, isOfficerNote)
-    local targetInfo = self:GetPlayerInfo(playerName)
-    if not targetInfo then 
-        print("|cFFFF0000Ошибка:|r Игрок " .. playerName .. " не найден")
-        return false 
-    end
-    
-    -- Для публичных заметок проверяем соответствующие права
-    if not CanEditPublicNote() then 
-        print("|cFFFF0000Ошибка:|r Нет прав для редактирования публичных заметок")
-        return false 
-    end
-    
-    -- Используем правильную функцию для публичных заметок
-    GuildRosterSetPublicNote(targetInfo.rosterIndex, noteText)
-    
-    -- Принудительное обновление данных гильдии
-    GuildRoster()
-    
-    print(string.format("|cFF00FF00Публичная заметка обновлена:|r %s → %s", playerName, noteText))
-    return true
 end
 
 function RatingManager:DelayedExecute(delay, callback)
@@ -1528,6 +1851,54 @@ function RatingManager:AddAdminCommands()
     end
 end
 
+function RatingManager:HasOfflineMembers()
+    if not IsInGuild() then
+        return false
+    end
+    
+    GuildRoster()
+    
+    local totalMembers = GetNumGuildMembers()
+    local checkedCount = 0
+    local maxCheck = math.min(50, totalMembers)
+    
+    for i = 1, maxCheck do
+        local name, rank, rankIndex, level, class, zone, note, officernote, online, status = GetGuildRosterInfo(i)
+        if name then
+            checkedCount = checkedCount + 1
+            if not online then
+                return true
+            end
+        end
+    end
+    
+    if checkedCount == totalMembers and totalMembers > 10 then
+        return false
+    end
+    
+    for i = 1, totalMembers do
+        local name, rank, rankIndex, level, class, zone, note, officernote, online, status = GetGuildRosterInfo(i)
+        if name and not online then
+            return true
+        end
+    end
+    
+    return false
+end
+
+function RatingManager:CanShowRatingUI()
+    if not IsInGuild() then
+        return false, "Вы не в гильдии"
+    end
+    
+    local hasOffline = self:HasOfflineMembers()
+    
+    if not hasOffline then
+        return false, "|cFFFF0000Внимание!|r Для корректного отображения рейтинга необходимо установить галочку 'Показывать отсутствующих' в окне гильдии.\n\nБез этой галочки данные будут некорректными, так как часть игроков не будет отображаться в списке."
+    end
+    
+    return true, nil
+end
 
 RatingManager:AddAdminCommands()
 
