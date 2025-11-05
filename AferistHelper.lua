@@ -152,7 +152,7 @@ function CreateMainFrame()
 end
 
 function CreateTabs()
-    local tabs = {"ElvUI", "WeakAuras", "Details", "Addons"}
+    local tabs = {"ElvUI", "WeakAuras", "Details", "Macro", "Addons"}
     
     for i, tabName in ipairs(tabs) do
         local tab = CreateFrame("Button", "AferistHelperTab"..i, frame, "UIPanelButtonTemplate")
@@ -1072,6 +1072,7 @@ loader:SetScript("OnEvent", function(self, event, addonName)
                 elvui = {},
                 weakauras = {},
                 details = {},
+				macro = {},
                 addons = {
                         ["Пак аддонов"] = {
                             author = "SegaZBS",
